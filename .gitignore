@@ -16,3 +16,11 @@ dist/
 ## Temporary scripts
 build_icon.cs
 make_icon.ps1
+
+## Android Build Artifacts
+.gradle/
+**/build/
+local.properties
+.idea/
+*.apk
+*.aab

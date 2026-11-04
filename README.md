@@ -1,15 +1,26 @@
 # Buds Studio
 
-> **Luxury Bluetooth Buds & Headphone Manager for Windows 10 / 11**  
-> Fluid iOS-inspired popup cards, accurate hardware battery telemetry, dynamic tray percentage, and intelligent form-factor auto-detection.
+> **Bluetooth Buds & Headphone Telemetry Manager for Windows & Android**  
+> Fluid iOS-inspired popup cards, accurate hardware battery telemetry, dynamic tray/overlay status, and automatic Over-Ear vs TWS form-factor detection.
 
 ---
 
 ## Overview
 
-**Buds Studio** is a native, high-performance C# / WPF application engineered to bring smartphone-level battery popups and audio device management to Windows desktop.
+**Buds Studio** is a cross-platform solution (native C# / WPF for Windows 10/11 and Jetpack Compose for Android 7.0+) engineered to bring premium battery popups and accurate Bluetooth audio telemetry to desktop and mobile devices.
 
-Unlike standard Windows Bluetooth settings that frequently display delayed or inaccurate percentages and completely ignore charging cases, **Buds Studio** interfaces directly with low-level RFCOMM serial and Bluetooth Low Energy (BLE) advertisement protocols to provide real-time battery telemetry for both earbuds and their charging case.
+Unlike generic system dialogs that frequently display delayed or rounded percentages and completely ignore charging cases, **Buds Studio** interfaces directly with low-level RFCOMM serial commands and BLE advertisement protocols to capture exact battery telemetry for both earbuds and their charging case.
+
+---
+
+## Downloads
+
+Official builds are available on the [GitHub Releases](https://github.com/TheFlipper-spec/Buds-Studio/releases/tag/v1.0.0) page:
+
+| Platform | Package | Architecture / SDK | Description |
+|---|---|---|---|
+| **Windows** | [`RealmeBudsPopup.exe`](https://github.com/TheFlipper-spec/Buds-Studio/releases/download/v1.0.0/RealmeBudsPopup.exe) | Windows 10 / 11 (x64) | Standalone single-file executable, zero runtime installation required. |
+| **Android** | [`Buds-Studio-v1.0.0.apk`](https://github.com/TheFlipper-spec/Buds-Studio/releases/download/v1.0.0/Buds-Studio-v1.0.0.apk) | Android 7.0+ (API 24+) | Native Jetpack Compose app with background Bluetooth service and floating HUD. |
 
 ---
 
@@ -73,22 +84,24 @@ Unlike standard Windows Bluetooth settings that frequently display delayed or in
 
 ## Building from Source
 
-### Prerequisites
+### Windows (C# / WPF)
 - Windows 10 (19041+) or Windows 11
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
-### Compilation
 ```powershell
-# Clone repository
-git clone https://github.com/TheFlipper-spec/Buds-Studio.git
-cd Buds-Studio
-
-# Build in Debug mode
-dotnet build
-
-# Publish single-file standalone Release executable
+# Build single-file standalone executable
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o dist
 ```
+
+### Android (Jetpack Compose / Kotlin)
+- JDK 17
+- Android SDK (API 35/36)
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+The output APK will be generated at `android/app/build/outputs/apk/release/app-release.apk`.
 
 ---
 
