@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothSocket
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -17,8 +18,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -35,8 +39,8 @@ class BudsBluetoothManager(private val context: Context) {
     private val _batteryState = MutableStateFlow<BudsBatteryState?>(null)
     val batteryState: StateFlow<BudsBatteryState?> = _batteryState.asStateFlow()
 
-    private val _onDeviceConnectedEvent = MutableStateFlow<BudsBatteryState?>(null)
-    val onDeviceConnectedEvent: StateFlow<BudsBatteryState?> = _onDeviceConnectedEvent.asStateFlow()
+    private val _onDeviceConnectedEvent = MutableSharedFlow<BudsBatteryState>(replay = 0, extraBufferCapacity = 2)
+    val onDeviceConnectedEvent: SharedFlow<BudsBatteryState> = _onDeviceConnectedEvent.asSharedFlow()
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var pollJob: Job? = null
@@ -46,8 +50,12 @@ class BudsBluetoothManager(private val context: Context) {
     companion object {
         private const val TAG = "BudsBluetoothManager"
         private val SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+        // Realme / Oppo SPP Handshake and Query Commands
+        private val HANDSHAKE_COMMAND = byteArrayOf(
+            0xAA.toByte(), 0x07, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00
+        )
         private val QUERY_COMMAND = byteArrayOf(
-            0xAA.toByte(), 0x07, 0x00, 0x00, 0x06, 0x81.toByte(), 0x02, 0x00, 0x00
+            0xAA.toByte(), 0x07, 0x00, 0x00, 0x06, 0x01, 0x02, 0x00, 0x00
         )
     }
 
@@ -68,12 +76,12 @@ class BudsBluetoothManager(private val context: Context) {
                                 isCurrentlyConnected = true
                                 lastCaseAvailable = caseNowAvailable
                                 _batteryState.value = state
-                                _onDeviceConnectedEvent.value = state
+                                _onDeviceConnectedEvent.emit(state)
                             } else if (!lastCaseAvailable && caseNowAvailable) {
-                                // Buds returned to open case
+                                // Buds placed back into open case -> trigger popup!
                                 lastCaseAvailable = true
                                 _batteryState.value = state
-                                _onDeviceConnectedEvent.value = state
+                                _onDeviceConnectedEvent.emit(state)
                             } else {
                                 lastCaseAvailable = caseNowAvailable
                                 _batteryState.value = state
@@ -89,7 +97,7 @@ class BudsBluetoothManager(private val context: Context) {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in Bluetooth monitor: ${e.message}")
                 }
-                delay(2500)
+                delay(2000)
             }
         }
 
@@ -133,6 +141,14 @@ class BudsBluetoothManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     private fun isDeviceConnected(device: BluetoothDevice): Boolean {
+        val adapter = bluetoothAdapter
+        if (adapter != null) {
+            val a2dp = adapter.getProfileConnectionState(BluetoothProfile.A2DP)
+            val headset = adapter.getProfileConnectionState(BluetoothProfile.HEADSET)
+            if (a2dp == BluetoothProfile.STATE_CONNECTED || headset == BluetoothProfile.STATE_CONNECTED) {
+                return true
+            }
+        }
         return try {
             val method = device.javaClass.getMethod("isConnected")
             method.invoke(device) as? Boolean ?: false
@@ -192,35 +208,102 @@ class BudsBluetoothManager(private val context: Context) {
             val os: OutputStream = socket.outputStream
             val `is`: InputStream = socket.inputStream
 
+            // Step 1: Handshake (Cmd 0x0100)
+            os.write(HANDSHAKE_COMMAND)
+            os.flush()
+
+            Thread.sleep(70)
+
+            // Step 2: Query battery telemetry (Cmd 0x0106)
             os.write(QUERY_COMMAND)
             os.flush()
 
-            val buffer = ByteArray(64)
+            Thread.sleep(120)
+
+            val buffer = ByteArray(256)
             val read = `is`.read(buffer)
-            if (read >= 17 && (buffer[0].toInt() and 0xFF) == 0xAA) {
-                // Command AA 0F 00 00 06 81 02 08 00 00 03 01 <L> 02 <R> 03 <Case>
-                val left = buffer[12].toInt() and 0xFF
-                val right = buffer[14].toInt() and 0xFF
-                val caseVal = buffer[16].toInt() and 0xFF
-
-                val leftComp = if (left in 1..100) BatteryComponent(left, false) else null
-                val rightComp = if (right in 1..100) BatteryComponent(right, false) else null
-                val caseComp = if (caseVal in 1..100) BatteryComponent(caseVal, false) else BatteryComponent.Unavailable
-
-                if (leftComp != null || rightComp != null) {
-                    return BudsBatteryState(
-                        deviceName = deviceName,
-                        left = leftComp,
-                        right = rightComp,
-                        case = caseComp,
-                        isOverEar = false
-                    )
-                }
+            if (read > 0) {
+                val parsed = parseOppoBattery(buffer, read, deviceName)
+                if (parsed != null) return parsed
             }
         } catch (e: Exception) {
             Log.d(TAG, "RFCOMM query failed for ${device.name}: ${e.message}")
         } finally {
             try { socket?.close() } catch (ignored: Exception) {}
+        }
+        return null
+    }
+
+    private fun parseOppoBattery(buffer: ByteArray, read: Int, deviceName: String): BudsBatteryState? {
+        var leftComp: BatteryComponent? = null
+        var rightComp: BatteryComponent? = null
+        var caseComp: BatteryComponent? = null
+
+        // Scan for response Cmd 0x8106 (0x06, 0x81) or push event 0x0204 (0x04, 0x02)
+        for (i in 0 until read - 6) {
+            val b0 = buffer[i].toInt() and 0xFF
+            val b1 = buffer[i + 1].toInt() and 0xFF
+
+            if ((b0 == 0x06 && b1 == 0x81) || (b0 == 0x04 && b1 == 0x02)) {
+                val payStart = i + 5
+                var p = payStart
+                if (p < read && buffer[p] == 0x00.toByte()) p++
+
+                while (p + 1 < read) {
+                    val comp = buffer[p].toInt() and 0xFF
+                    val raw = buffer[p + 1].toInt() and 0xFF
+                    val level = raw and 0x7F
+                    val isCharging = (raw and 0x80) != 0
+
+                    if (comp in 1..3) {
+                        val compInfo = if (level in 1..100) BatteryComponent(level, isCharging) else null
+                        when (comp) {
+                            1 -> leftComp = compInfo
+                            2 -> rightComp = compInfo
+                            3 -> caseComp = compInfo
+                        }
+                        p += 2
+                    } else {
+                        p++
+                    }
+                }
+            }
+        }
+
+        // Direct pair scan fallback: [comp, raw] pairs
+        if (leftComp == null && rightComp == null) {
+            for (i in 0 until read - 1) {
+                val comp = buffer[i].toInt() and 0xFF
+                val raw = buffer[i + 1].toInt() and 0xFF
+                val level = raw and 0x7F
+                val isCharging = (raw and 0x80) != 0
+
+                if (comp in 1..3 && level in 1..100) {
+                    val compInfo = BatteryComponent(level, isCharging)
+                    when (comp) {
+                        1 -> if (leftComp == null) leftComp = compInfo
+                        2 -> if (rightComp == null) rightComp = compInfo
+                        3 -> if (caseComp == null) caseComp = compInfo
+                    }
+                }
+            }
+        }
+
+        // If at initial connection only master earbud reported, synchronize to both buds so right is never blank
+        if (leftComp != null && rightComp == null) {
+            rightComp = leftComp
+        } else if (rightComp != null && leftComp == null) {
+            leftComp = rightComp
+        }
+
+        if (leftComp != null || rightComp != null) {
+            return BudsBatteryState(
+                deviceName = deviceName,
+                left = leftComp,
+                right = rightComp,
+                case = caseComp ?: BatteryComponent.Unavailable,
+                isOverEar = false
+            )
         }
         return null
     }

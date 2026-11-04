@@ -78,7 +78,7 @@ class BudsOverlayService : Service() {
 
         scope.launch {
             bluetoothManager.onDeviceConnectedEvent.collect { state ->
-                state?.let { showFloatingPopup(it) }
+                showFloatingPopup(state)
             }
         }
 
@@ -169,17 +169,21 @@ class BudsOverlayService : Service() {
                     WindowManager.LayoutParams.TYPE_PHONE
                 }
 
+                val displayMetrics = resources.displayMetrics
+                val popupHeight = (displayMetrics.heightPixels * 0.48f).toInt()
+
                 val params = WindowManager.LayoutParams(
                     WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    popupHeight,
                     layoutType,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                     PixelFormat.TRANSLUCENT
                 ).apply {
-                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                    y = 48
+                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                    x = 0
+                    y = 0
                 }
 
                 val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
@@ -220,7 +224,7 @@ class BudsOverlayService : Service() {
                     txtRight.text = state.right?.displayText ?: "—"
 
                     txtLeftStatus.text = if (state.left?.isAvailable == true) "В ухе" else "—"
-                    txtCaseStatus.text = "Кейс"
+                    txtCaseStatus.text = if (state.case?.isAvailable == true && (state.case.percent ?: 0) > 0) "Открыт" else "Кейс"
                     txtRightStatus.text = if (state.right?.isAvailable == true) "В ухе" else "—"
                 }
 
@@ -228,23 +232,23 @@ class BudsOverlayService : Service() {
                     dismissOverlay()
                 }
 
-                // Smooth slide-down spring entrance animation
-                view.translationY = -180f
-                view.alpha = 0f
+                // Smooth bottom-sheet slide-up entrance animation
+                view.translationY = popupHeight.toFloat()
+                view.alpha = 0.5f
                 windowManager?.addView(view, params)
                 overlayView = view
 
                 view.animate()
                     .translationY(0f)
                     .alpha(1f)
-                    .setDuration(350)
-                    .setInterpolator(android.view.animation.OvershootInterpolator(1.05f))
+                    .setDuration(400)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f))
                     .start()
 
-                // Auto dismiss after 5 seconds
+                // Auto dismiss after 6 seconds
                 dismissJob?.cancel()
                 dismissJob = scope.launch {
-                    delay(5000)
+                    delay(6000)
                     dismissOverlay()
                 }
             } catch (e: Exception) {
@@ -258,10 +262,12 @@ class BudsOverlayService : Service() {
             try {
                 val current = overlayView ?: return@launch
                 overlayView = null
+                val h = current.height.takeIf { it > 0 } ?: 900
                 current.animate()
-                    .translationY(-160f)
+                    .translationY(h.toFloat())
                     .alpha(0f)
-                    .setDuration(220)
+                    .setDuration(260)
+                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.5f))
                     .withEndAction {
                         try {
                             windowManager?.removeView(current)

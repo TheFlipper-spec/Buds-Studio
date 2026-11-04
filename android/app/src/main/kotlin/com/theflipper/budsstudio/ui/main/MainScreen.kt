@@ -31,6 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -49,9 +50,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.theflipper.budsstudio.R
 import com.theflipper.budsstudio.bluetooth.BudsBluetoothManager
 import com.theflipper.budsstudio.model.BudsBatteryState
 import com.theflipper.budsstudio.service.BudsOverlayService
@@ -323,6 +326,7 @@ fun HeroBatteryCard(
                     label = "Наушники",
                     status = "Подключено",
                     percent = pct,
+                    iconRes = R.drawable.ic_headphones_overear,
                     accent = accent,
                     textPrimary = textPrimary,
                     textSecondary = textSecondary
@@ -341,6 +345,7 @@ fun HeroBatteryCard(
                         label = "Левый",
                         status = if (state != null) "В ухе" else "Демо",
                         percent = leftPct,
+                        iconRes = R.drawable.ic_bud_left,
                         accent = accent,
                         textPrimary = textPrimary,
                         textSecondary = textSecondary
@@ -350,6 +355,7 @@ fun HeroBatteryCard(
                         label = "Кейс",
                         status = if (casePct != null && casePct > 0) "Открыт" else "В ушах",
                         percent = casePct,
+                        iconRes = R.drawable.ic_case_pebble,
                         accent = accent,
                         textPrimary = textPrimary,
                         textSecondary = textSecondary
@@ -359,6 +365,7 @@ fun HeroBatteryCard(
                         label = "Правый",
                         status = if (state != null) "В ухе" else "Демо",
                         percent = rightPct,
+                        iconRes = R.drawable.ic_bud_right,
                         accent = accent,
                         textPrimary = textPrimary,
                         textSecondary = textSecondary
@@ -374,6 +381,7 @@ fun BatteryGaugeItem(
     label: String,
     status: String,
     percent: Int?,
+    iconRes: Int,
     accent: Color,
     textPrimary: Color,
     textSecondary: Color
@@ -406,20 +414,12 @@ fun BatteryGaugeItem(
                     strokeWidth = 5.dp
                 )
             }
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(accent.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(accent)
-                )
-            }
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = label,
+                tint = accent,
+                modifier = Modifier.size(38.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))

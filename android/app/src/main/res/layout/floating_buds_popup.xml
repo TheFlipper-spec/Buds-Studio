@@ -1,25 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp">
+    android:layout_height="match_parent">
 
     <LinearLayout
         android:id="@+id/cardContainer"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_floating_card"
-        android:elevation="14dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_bottom_sheet_card"
+        android:elevation="18dp"
         android:orientation="vertical"
-        android:paddingStart="18dp"
-        android:paddingEnd="18dp"
-        android:paddingTop="14dp"
-        android:paddingBottom="16dp">
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="24dp">
 
-        <!-- Top Header: Status Indicator + Device Name + Close Button -->
+        <!-- Top Drag Pill Handle -->
+        <View
+            android:layout_width="48dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_bottom_sheet_handle" />
+
+        <!-- Header: Connection Dot + Device Name + Close Button -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
@@ -33,12 +37,12 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <!-- Green Connection Dot -->
+                <!-- Glowing Emerald Status Dot -->
                 <View
                     android:id="@+id/statusDot"
-                    android:layout_width="7dp"
-                    android:layout_height="7dp"
-                    android:layout_marginEnd="7dp"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginEnd="10dp"
                     android:background="#10B981" />
 
                 <!-- Device Name -->
@@ -50,203 +54,220 @@
                     android:maxLines="1"
                     android:text="realme Buds T500 Pro"
                     android:textColor="#0F172A"
-                    android:textSize="13sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
             <!-- Close Button -->
             <ImageView
                 android:id="@+id/btnClosePopup"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Закрыть"
-                android:padding="2dp"
+                android:padding="6dp"
                 android:src="@drawable/ic_close_pill" />
         </RelativeLayout>
 
-        <!-- 1. TWS In-Ear Layout (Left, Case, Right) -->
-        <LinearLayout
-            android:id="@+id/layoutTws"
+        <!-- Centered Gauges Container (Fills the middle space) -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:weightSum="3">
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="16dp">
 
-            <!-- Left Bud Column -->
+            <!-- 1. TWS In-Ear Layout (Left, Case, Right) -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:id="@+id/layoutTws"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_gravity="center"
                 android:gravity="center"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <!-- Left Bud Column -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="82dp"
+                        android:layout_height="82dp"
+                        android:background="@drawable/bg_gauge_ring">
+
+                        <ImageView
+                            android:id="@+id/imgLeftBud"
+                            android:layout_width="46dp"
+                            android:layout_height="46dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Левый наушник"
+                            android:src="@drawable/ic_bud_left" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/txtLeftPercent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="80%"
+                        android:textColor="#0F172A"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtLeftStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="В ухе"
+                        android:textColor="#64748B"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <!-- Case Column -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="82dp"
+                        android:layout_height="82dp"
+                        android:background="@drawable/bg_gauge_ring">
+
+                        <ImageView
+                            android:id="@+id/imgCase"
+                            android:layout_width="50dp"
+                            android:layout_height="50dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Кейс"
+                            android:src="@drawable/ic_case_pebble" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/txtCasePercent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="—"
+                        android:textColor="#0F172A"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtCaseStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Кейс"
+                        android:textColor="#64748B"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <!-- Right Bud Column -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="82dp"
+                        android:layout_height="82dp"
+                        android:background="@drawable/bg_gauge_ring">
+
+                        <ImageView
+                            android:id="@+id/imgRightBud"
+                            android:layout_width="46dp"
+                            android:layout_height="46dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Правый наушник"
+                            android:src="@drawable/ic_bud_right" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/txtRightPercent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="80%"
+                        android:textColor="#0F172A"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtRightStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="В ухе"
+                        android:textColor="#64748B"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 2. Over-Ear Headband Layout (Single Centered Column) -->
+            <LinearLayout
+                android:id="@+id/layoutOverEar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <FrameLayout
-                    android:layout_width="66dp"
-                    android:layout_height="66dp"
+                    android:layout_width="96dp"
+                    android:layout_height="96dp"
                     android:background="@drawable/bg_gauge_ring">
 
                     <ImageView
-                        android:id="@+id/imgLeftBud"
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
+                        android:id="@+id/imgOverEar"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
                         android:layout_gravity="center"
-                        android:contentDescription="Левый наушник"
-                        android:src="@drawable/ic_bud_left" />
+                        android:contentDescription="Полноразмерные наушники"
+                        android:src="@drawable/ic_headphones_overear" />
                 </FrameLayout>
 
                 <TextView
-                    android:id="@+id/txtLeftPercent"
+                    android:id="@+id/txtOverEarPercent"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="12dp"
                     android:text="80%"
                     android:textColor="#0F172A"
-                    android:textSize="16sp"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/txtLeftStatus"
+                    android:id="@+id/txtOverEarStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="В ухе"
+                    android:text="Наушники • Подключено"
                     android:textColor="#64748B"
-                    android:textSize="11sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
+        </FrameLayout>
 
-            <!-- Case Column -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <FrameLayout
-                    android:layout_width="66dp"
-                    android:layout_height="66dp"
-                    android:background="@drawable/bg_gauge_ring">
-
-                    <ImageView
-                        android:id="@+id/imgCase"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="Кейс"
-                        android:src="@drawable/ic_case_pebble" />
-                </FrameLayout>
-
-                <TextView
-                    android:id="@+id/txtCasePercent"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="—"
-                    android:textColor="#0F172A"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/txtCaseStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Кейс"
-                    android:textColor="#64748B"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <!-- Right Bud Column -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <FrameLayout
-                    android:layout_width="66dp"
-                    android:layout_height="66dp"
-                    android:background="@drawable/bg_gauge_ring">
-
-                    <ImageView
-                        android:id="@+id/imgRightBud"
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="Правый наушник"
-                        android:src="@drawable/ic_bud_right" />
-                </FrameLayout>
-
-                <TextView
-                    android:id="@+id/txtRightPercent"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="80%"
-                    android:textColor="#0F172A"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/txtRightStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="В ухе"
-                    android:textColor="#64748B"
-                    android:textSize="11sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- 2. Over-Ear Headband Layout (Single Centered Column) -->
-        <LinearLayout
-            android:id="@+id/layoutOverEar"
-            android:layout_width="match_parent"
+        <!-- Bottom Status Bar / Close Area -->
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <FrameLayout
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:background="@drawable/bg_gauge_ring">
-
-                <ImageView
-                    android:id="@+id/imgOverEar"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="Полноразмерные наушники"
-                    android:src="@drawable/ic_headphones_overear" />
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/txtOverEarPercent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="80%"
-                android:textColor="#0F172A"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/txtOverEarStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Наушники • Подключено"
-                android:textColor="#64748B"
-                android:textSize="12sp" />
-        </LinearLayout>
+            android:layout_gravity="center_horizontal"
+            android:text="Buds Studio Pro • Нажмите в любом месте для закрытия"
+            android:textColor="#94A3B8"
+            android:textSize="11sp" />
 
     </LinearLayout>
 </FrameLayout>
