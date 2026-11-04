@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Headband Arc -->
+    <path
+        android:strokeColor="#0066CC"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M13,26 C13,15 18,10 24,10 C30,10 35,15 35,26" />
+
+    <!-- Left Earcup -->
+    <path
+        android:fillColor="#0066CC"
+        android:pathData="M10,24 L16,24 A2,2 0,0,1 18,26 L18,36 A2,2 0,0,1 16,38 L10,38 A2,2 0,0,1 8,36 L8,26 A2,2 0,0,1 10,24 Z" />
+
+    <!-- Right Earcup -->
+    <path
+        android:fillColor="#0066CC"
+        android:pathData="M32,24 L38,24 A2,2 0,0,1 40,26 L40,36 A2,2 0,0,1 38,38 L32,38 A2,2 0,0,1 30,36 L30,26 A2,2 0,0,1 32,24 Z" />
+</vector>

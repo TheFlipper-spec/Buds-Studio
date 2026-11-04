@@ -186,26 +186,65 @@ class BudsOverlayService : Service() {
                 val view = inflater.inflate(R.layout.floating_buds_popup, null)
 
                 val txtTitle = view.findViewById<TextView>(R.id.txtDeviceName)
-                val txtLeft = view.findViewById<TextView>(R.id.txtLeftPercent)
-                val txtCase = view.findViewById<TextView>(R.id.txtCasePercent)
-                val txtRight = view.findViewById<TextView>(R.id.txtRightPercent)
+                val btnClose = view.findViewById<View>(R.id.btnClosePopup)
+                val layoutTws = view.findViewById<View>(R.id.layoutTws)
+                val layoutOverEar = view.findViewById<View>(R.id.layoutOverEar)
 
                 txtTitle.text = state.deviceName
-                txtLeft.text = state.left?.displayText ?: "—"
-                txtCase.text = state.case?.displayText ?: "—"
-                txtRight.text = state.right?.displayText ?: "—"
+
+                btnClose.setOnClickListener {
+                    dismissOverlay()
+                }
+
+                if (state.isOverEar) {
+                    layoutOverEar.visibility = View.VISIBLE
+                    layoutTws.visibility = View.GONE
+
+                    val txtOverEarPercent = view.findViewById<TextView>(R.id.txtOverEarPercent)
+                    val txtOverEarStatus = view.findViewById<TextView>(R.id.txtOverEarStatus)
+                    txtOverEarPercent.text = state.left?.displayText ?: "—"
+                    txtOverEarStatus.text = "Наушники • Подключено"
+                } else {
+                    layoutTws.visibility = View.VISIBLE
+                    layoutOverEar.visibility = View.GONE
+
+                    val txtLeft = view.findViewById<TextView>(R.id.txtLeftPercent)
+                    val txtLeftStatus = view.findViewById<TextView>(R.id.txtLeftStatus)
+                    val txtCase = view.findViewById<TextView>(R.id.txtCasePercent)
+                    val txtCaseStatus = view.findViewById<TextView>(R.id.txtCaseStatus)
+                    val txtRight = view.findViewById<TextView>(R.id.txtRightPercent)
+                    val txtRightStatus = view.findViewById<TextView>(R.id.txtRightStatus)
+
+                    txtLeft.text = state.left?.displayText ?: "—"
+                    txtCase.text = state.case?.displayText ?: "—"
+                    txtRight.text = state.right?.displayText ?: "—"
+
+                    txtLeftStatus.text = if (state.left?.isAvailable == true) "В ухе" else "—"
+                    txtCaseStatus.text = "Кейс"
+                    txtRightStatus.text = if (state.right?.isAvailable == true) "В ухе" else "—"
+                }
 
                 view.setOnClickListener {
                     dismissOverlay()
                 }
 
+                // Smooth slide-down spring entrance animation
+                view.translationY = -180f
+                view.alpha = 0f
                 windowManager?.addView(view, params)
                 overlayView = view
 
-                // Auto dismiss after 4 seconds
+                view.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(350)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.05f))
+                    .start()
+
+                // Auto dismiss after 5 seconds
                 dismissJob?.cancel()
                 dismissJob = scope.launch {
-                    delay(4000)
+                    delay(5000)
                     dismissOverlay()
                 }
             } catch (e: Exception) {
@@ -217,10 +256,18 @@ class BudsOverlayService : Service() {
     private fun dismissOverlay() {
         scope.launch(Dispatchers.Main) {
             try {
-                if (overlayView != null) {
-                    windowManager?.removeView(overlayView)
-                    overlayView = null
-                }
+                val current = overlayView ?: return@launch
+                overlayView = null
+                current.animate()
+                    .translationY(-160f)
+                    .alpha(0f)
+                    .setDuration(220)
+                    .withEndAction {
+                        try {
+                            windowManager?.removeView(current)
+                        } catch (ignored: Exception) {}
+                    }
+                    .start()
             } catch (ignored: Exception) {}
         }
     }

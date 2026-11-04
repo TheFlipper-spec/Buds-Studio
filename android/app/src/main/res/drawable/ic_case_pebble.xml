@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Pebble Case Body -->
+    <path
+        android:fillColor="#0066CC"
+        android:pathData="M9,24 C9,14 16,11 24,11 C32,11 39,14 39,24 C39,34 32,37 24,37 C16,37 9,34 9,24 Z" />
+
+    <!-- Split Lid Seam Line -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.2"
+        android:strokeAlpha="0.9"
+        android:pathData="M9.5,22 L38.5,22" />
+
+    <!-- Front LED Indicator Dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,29m-1.2,0a1.2,1.2 0,1,1 2.4,0a1.2,1.2 0,1,1 -2.4,0" />
+</vector>
