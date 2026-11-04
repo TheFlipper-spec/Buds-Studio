@@ -1,0 +1,18 @@
+## Visual Studio & .NET Build Artifacts
+bin/
+obj/
+dist/
+.vs/
+.vscode/
+
+## User & Machine-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.log
+*.tmp
+
+## Temporary scripts
+build_icon.cs
+make_icon.ps1

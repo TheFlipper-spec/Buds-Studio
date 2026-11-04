@@ -1,0 +1,327 @@
+<Window x:Class="RealmeBudsPopup.Views.BudsPopupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:RealmeBudsPopup.Controls"
+        mc:Ignorable="d"
+        Title="Bluetooth Audio Status"
+        Width="416"
+        Height="194"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        RenderOptions.ClearTypeHint="Enabled">
+
+    <Grid x:Name="RootLayout" Margin="10">
+        <!-- Floating Surface Card -->
+        <Border x:Name="CardBorder"
+                CornerRadius="24"
+                Background="#FFFFFF"
+                BorderBrush="#E2E8F0"
+                BorderThickness="1"
+                ClipToBounds="True">
+            <Border.Effect>
+                <DropShadowEffect Color="#000000"
+                                  BlurRadius="28"
+                                  Opacity="0.22"
+                                  ShadowDepth="5"
+                                  Direction="270" />
+            </Border.Effect>
+
+            <Grid Margin="18,14,18,14">
+                <!-- Close Button on top right -->
+                <Button x:Name="CloseButton"
+                        Width="22"
+                        Height="22"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,-4,-4,0"
+                        Cursor="Hand"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="CloseButton_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bdr" Background="Transparent" CornerRadius="11">
+                                <Path Data="M 14,6 L 6,14 M 6,6 L 14,14"
+                                      Stroke="#94A3B8"
+                                      StrokeThickness="1.5"
+                                      StrokeStartLineCap="Round"
+                                      Width="9"
+                                      Height="9"
+                                      Stretch="Uniform"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bdr" Property="Background" Value="#F1F5F9" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <!-- 1. TWS 3-COLUMN LAYOUT (FOR IN-EAR / EARBUDS) -->
+                <Grid x:Name="TwsLayout" Margin="4,2,4,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 1. LEFT EARBUD COLUMN -->
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Circular Gauge Container with Earbud inside -->
+                        <Grid Width="78" Height="78" HorizontalAlignment="Center">
+                            <!-- Circular Progress Ring -->
+                            <controls:CircularGauge x:Name="LeftGauge"
+                                                    Width="78"
+                                                    Height="78"
+                                                    StrokeThickness="5"
+                                                    Value="0"
+                                                    IsAvailable="True" />
+
+                            <!-- In-Ear Left Model -->
+                            <Canvas x:Name="LeftInEarModel" Width="38" Height="42" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Rectangle x:Name="LeftBudStem"
+                                           Canvas.Left="15"
+                                           Canvas.Top="17"
+                                           Width="9"
+                                           Height="21"
+                                           RadiusX="4.5"
+                                           RadiusY="4.5"
+                                           Fill="#0066CC" />
+
+                                <Ellipse x:Name="LeftBudHead"
+                                         Canvas.Left="9"
+                                         Canvas.Top="3"
+                                         Width="21"
+                                         Height="21"
+                                         Fill="#0066CC" />
+
+                                <Ellipse x:Name="LeftBudTip"
+                                         Canvas.Left="17"
+                                         Canvas.Top="6"
+                                         Width="15"
+                                         Height="15"
+                                         Fill="#0066CC"
+                                         Stroke="#FFFFFF"
+                                         StrokeThickness="1.5" />
+                            </Canvas>
+                        </Grid>
+
+                        <!-- Percentage & Status (No clipping) -->
+                        <TextBlock x:Name="LeftPercentText"
+                                   Text="70%"
+                                   FontSize="19"
+                                   FontWeight="Bold"
+                                   Foreground="#0F172A"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0" />
+
+                        <TextBlock x:Name="LeftStatusText"
+                                   Text="В ухе"
+                                   FontSize="12.5"
+                                   FontWeight="Normal"
+                                   Foreground="#64748B"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,2,0,2"
+                                   Padding="0,0,0,2" />
+                    </StackPanel>
+
+                    <!-- 2. CASE COLUMN -->
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Circular Gauge Container with Case inside -->
+                        <Grid Width="78" Height="78" HorizontalAlignment="Center">
+                            <!-- Circular Progress Ring (Full gray if in ears / unavailable) -->
+                            <controls:CircularGauge x:Name="CaseGauge"
+                                                    Width="78"
+                                                    Height="78"
+                                                    StrokeThickness="5"
+                                                    Value="0"
+                                                    IsAvailable="False" />
+
+                            <!-- Charging Case Silhouette -->
+                            <Canvas x:Name="CaseModel" Width="42" Height="32" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Rectangle x:Name="CaseBody"
+                                           Canvas.Left="1"
+                                           Canvas.Top="3"
+                                           Width="40"
+                                           Height="26"
+                                           RadiusX="13"
+                                           RadiusY="13"
+                                           Fill="#0066CC" />
+
+                                <Line Canvas.Left="1"
+                                      Canvas.Top="12"
+                                      X1="0"
+                                      Y1="0"
+                                      X2="40"
+                                      Y2="0"
+                                      Stroke="#FFFFFF"
+                                      StrokeThickness="1.2"
+                                      Opacity="0.8" />
+
+                                <Ellipse Canvas.Left="20"
+                                         Canvas.Top="19"
+                                         Width="2.5"
+                                         Height="2.5"
+                                         Fill="#FFFFFF"
+                                         Opacity="0.9" />
+                            </Canvas>
+                        </Grid>
+
+                        <!-- Percentage / Dash & Status -->
+                        <TextBlock x:Name="CasePercentText"
+                                   Text="—"
+                                   FontSize="19"
+                                   FontWeight="Bold"
+                                   Foreground="#0F172A"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0" />
+
+                        <TextBlock x:Name="CaseStatusText"
+                                   Text="Кейс"
+                                   FontSize="12.5"
+                                   FontWeight="Normal"
+                                   Foreground="#64748B"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,2,0,2"
+                                   Padding="0,0,0,2" />
+                    </StackPanel>
+
+                    <!-- 3. RIGHT EARBUD COLUMN -->
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Circular Gauge Container with Earbud inside -->
+                        <Grid Width="78" Height="78" HorizontalAlignment="Center">
+                            <!-- Circular Progress Ring -->
+                            <controls:CircularGauge x:Name="RightGauge"
+                                                    Width="78"
+                                                    Height="78"
+                                                    StrokeThickness="5"
+                                                    Value="0"
+                                                    IsAvailable="True" />
+
+                            <!-- Right Earbud Silhouette (Mirrored) -->
+                            <Canvas x:Name="RightInEarModel" Width="38" Height="42" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Rectangle x:Name="RightBudStem"
+                                           Canvas.Left="14"
+                                           Canvas.Top="17"
+                                           Width="9"
+                                           Height="21"
+                                           RadiusX="4.5"
+                                           RadiusY="4.5"
+                                           Fill="#0066CC" />
+
+                                <Ellipse x:Name="RightBudHead"
+                                         Canvas.Left="8"
+                                         Canvas.Top="3"
+                                         Width="21"
+                                         Height="21"
+                                         Fill="#0066CC" />
+
+                                <Ellipse x:Name="RightBudTip"
+                                         Canvas.Left="6"
+                                         Canvas.Top="6"
+                                         Width="15"
+                                         Height="15"
+                                         Fill="#0066CC"
+                                         Stroke="#FFFFFF"
+                                         StrokeThickness="1.5" />
+                            </Canvas>
+                        </Grid>
+
+                        <!-- Percentage & Status -->
+                        <TextBlock x:Name="RightPercentText"
+                                   Text="60%"
+                                   FontSize="19"
+                                   FontWeight="Bold"
+                                   Foreground="#0F172A"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0" />
+
+                        <TextBlock x:Name="RightStatusText"
+                                   Text="В ухе"
+                                   FontSize="12.5"
+                                   FontWeight="Normal"
+                                   Foreground="#64748B"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,2,0,2"
+                                   Padding="0,0,0,2" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- 2. OVER-EAR SINGLE CARD LAYOUT (FOR EDIFIER / OVER-EAR HEADPHONES) -->
+                <Grid x:Name="OverEarLayout" Margin="4,2,4,2" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid Width="82" Height="82" HorizontalAlignment="Center">
+                            <!-- Circular Gauge for Over-Ear -->
+                            <controls:CircularGauge x:Name="OverEarGauge"
+                                                    Width="82"
+                                                    Height="82"
+                                                    StrokeThickness="5"
+                                                    Value="0"
+                                                    IsAvailable="True" />
+
+                            <!-- Over-Ear Headphone Vector Model -->
+                            <Canvas Width="46" Height="44" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <!-- Headband Arch -->
+                                <Path x:Name="OverEarArch"
+                                      Data="M 8,23 C 8,7 38,7 38,23"
+                                      Stroke="#0066CC"
+                                      StrokeThickness="3.6"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round" />
+                                <!-- Left Earcup Cushion & Cup -->
+                                <Rectangle x:Name="OverEarLeftCup"
+                                           Canvas.Left="4"
+                                           Canvas.Top="19"
+                                           Width="9"
+                                           Height="19"
+                                           RadiusX="4.5"
+                                           RadiusY="4.5"
+                                           Fill="#0066CC" />
+                                <!-- Right Earcup Cushion & Cup -->
+                                <Rectangle x:Name="OverEarRightCup"
+                                           Canvas.Left="33"
+                                           Canvas.Top="19"
+                                           Width="9"
+                                           Height="19"
+                                           RadiusX="4.5"
+                                           RadiusY="4.5"
+                                           Fill="#0066CC" />
+                            </Canvas>
+                        </Grid>
+
+                        <!-- Single Battery Percentage -->
+                        <TextBlock x:Name="OverEarPercentText"
+                                   Text="80%"
+                                   FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="#0F172A"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0" />
+
+                        <!-- Single Status -->
+                        <TextBlock x:Name="OverEarStatusText"
+                                   Text="Подключено"
+                                   FontSize="12.5"
+                                   FontWeight="Normal"
+                                   Foreground="#64748B"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,2,0,2"
+                                   Padding="0,0,0,2" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
