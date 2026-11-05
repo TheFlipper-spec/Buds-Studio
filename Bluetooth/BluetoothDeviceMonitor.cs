@@ -212,7 +212,13 @@ namespace RealmeBudsPopup.Bluetooth
                 if (serialBattery != null)
                     return serialBattery;
 
-                // 2. Edifier Protocol (if device is Edifier)
+                // 2. Windows PnP Device Property (DEVPKEY_Device_BatteryLevel)
+                // Instantly resolves Edifier W800BT/W820NB, Sony, JBL, Bose, and any standard HFP/AVRCP headset connected to Windows!
+                var pnpBattery = await TryQueryWindowsPnpBatteryAsync(deviceName, macHex);
+                if (pnpBattery != null)
+                    return pnpBattery;
+
+                // 3. Edifier Protocol (if device is Edifier and has COM port)
                 if (deviceName.Contains("Edifier", StringComparison.OrdinalIgnoreCase))
                 {
                     var edifierBattery = await TryQueryEdifierBatteryAsync(deviceName);
@@ -220,12 +226,12 @@ namespace RealmeBudsPopup.Bluetooth
                         return edifierBattery;
                 }
 
-                // 3. Fallback to standard BLE GATT Battery Service (any Bluetooth headset)
+                // 4. Fallback to standard BLE GATT Battery Service (any Bluetooth headset)
                 var gattBattery = await TryQueryGattBatteryAsync(bluetoothDevice, deviceName);
                 if (gattBattery != null)
                     return gattBattery;
 
-                // 4. RFCOMM SPP socket fallback
+                // 5. RFCOMM SPP socket fallback
                 var sppBattery = await TryQueryRfcommBatteryAsync(bluetoothDevice, deviceName);
                 if (sppBattery != null)
                     return sppBattery;
@@ -235,6 +241,36 @@ namespace RealmeBudsPopup.Bluetooth
                 System.Diagnostics.Debug.WriteLine($"Error querying device {deviceName}: {ex.Message}");
             }
 
+            return null;
+        }
+
+        private static async Task<BudsBatteryState?> TryQueryWindowsPnpBatteryAsync(string deviceName, string macHex)
+        {
+            try
+            {
+                string aqs = $"System.Devices.DeviceInstanceId:~~\"{macHex}\"";
+                var devs = await DeviceInformation.FindAllAsync(aqs, new[] { "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2" });
+                foreach (var dev in devs)
+                {
+                    if (dev.Properties.TryGetValue("{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2", out var val) && val != null)
+                    {
+                        byte level = Convert.ToByte(val);
+                        if (level > 0 && level <= 100)
+                        {
+                            return new BudsBatteryState(
+                                deviceName,
+                                new BatteryComponent(level, false),
+                                new BatteryComponent(level, false),
+                                BatteryComponent.Unavailable
+                            );
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to query Windows PnP battery: {ex.Message}");
+            }
             return null;
         }
 

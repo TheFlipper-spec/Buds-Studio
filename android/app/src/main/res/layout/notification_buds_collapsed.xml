@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:background="@drawable/bg_notification_card"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <View
+        android:layout_width="7dp"
+        android:layout_height="7dp"
+        android:layout_marginEnd="8dp"
+        android:background="#10B981" />
+
+    <TextView
+        android:id="@+id/txtNotifCollapsedTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="Buds Studio Pro"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtNotifCollapsedBattery"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="L: 80% | Кейс: 40% | R: 80%"
+        android:textColor="#38BDF8"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+</LinearLayout>

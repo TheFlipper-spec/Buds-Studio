@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
+import android.widget.RemoteViews
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.theflipper.budsstudio.MainActivity
@@ -129,16 +130,58 @@ class BudsOverlayService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = if (state != null) {
-            "${state.deviceName}: L ${state.left?.displayText ?: "—"} | R ${state.right?.displayText ?: "—"} | Case ${state.case?.displayText ?: "—"}"
+        val collapsedView = RemoteViews(packageName, R.layout.notification_buds_collapsed)
+        val expandedView = RemoteViews(packageName, R.layout.notification_buds_expanded)
+
+        if (state != null) {
+            collapsedView.setTextViewText(R.id.txtNotifCollapsedTitle, state.deviceName)
+            expandedView.setTextViewText(R.id.txtNotifDeviceName, state.deviceName)
+            expandedView.setTextViewText(R.id.txtNotifHeaderStatus, "Подключено")
+
+            if (state.isOverEar) {
+                val valText = state.left?.displayText ?: "—"
+                collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "Заряд: $valText")
+
+                expandedView.setViewVisibility(R.id.layoutNotifTws, View.GONE)
+                expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.VISIBLE)
+                expandedView.setTextViewText(R.id.txtNotifOverEarPercent, valText)
+                expandedView.setTextViewText(R.id.txtNotifOverEarStatus, "Наушники • Подключено")
+            } else {
+                val lText = state.left?.displayText ?: "—"
+                val rText = state.right?.displayText ?: "—"
+                val cText = state.case?.displayText ?: "—"
+                collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "L: $lText | Кейс: $cText | R: $rText")
+
+                expandedView.setViewVisibility(R.id.layoutNotifTws, View.VISIBLE)
+                expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.GONE)
+
+                expandedView.setTextViewText(R.id.txtNotifLeftPercent, lText)
+                expandedView.setTextViewText(R.id.txtNotifLeftStatus, if (state.left?.isAvailable == true) "В ухе" else "—")
+
+                expandedView.setTextViewText(R.id.txtNotifCasePercent, cText)
+                expandedView.setTextViewText(R.id.txtNotifCaseStatus, if (state.case?.isAvailable == true && (state.case.percent ?: 0) > 0) "Открыт" else "Кейс")
+
+                expandedView.setTextViewText(R.id.txtNotifRightPercent, rText)
+                expandedView.setTextViewText(R.id.txtNotifRightStatus, if (state.right?.isAvailable == true) "В ухе" else "—")
+            }
         } else {
-            "Ожидание подключения Bluetooth-наушников..."
+            collapsedView.setTextViewText(R.id.txtNotifCollapsedTitle, "Buds Studio Pro")
+            collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "Поиск Bluetooth...")
+
+            expandedView.setTextViewText(R.id.txtNotifDeviceName, "Buds Studio Pro")
+            expandedView.setTextViewText(R.id.txtNotifHeaderStatus, "Ожидание...")
+            expandedView.setViewVisibility(R.id.layoutNotifTws, View.VISIBLE)
+            expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.GONE)
+            expandedView.setTextViewText(R.id.txtNotifLeftPercent, "—")
+            expandedView.setTextViewText(R.id.txtNotifCasePercent, "—")
+            expandedView.setTextViewText(R.id.txtNotifRightPercent, "—")
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Buds Studio Pro")
-            .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsedView)
+            .setCustomBigContentView(expandedView)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
@@ -193,6 +236,7 @@ class BudsOverlayService : Service() {
                 val btnClose = view.findViewById<View>(R.id.btnClosePopup)
                 val layoutTws = view.findViewById<View>(R.id.layoutTws)
                 val layoutOverEar = view.findViewById<View>(R.id.layoutOverEar)
+                val card = view.findViewById<View>(R.id.cardContainer)
 
                 txtTitle.text = state.deviceName
 
@@ -232,17 +276,19 @@ class BudsOverlayService : Service() {
                     dismissOverlay()
                 }
 
-                // Smooth bottom-sheet slide-up entrance animation
-                view.translationY = popupHeight.toFloat()
-                view.alpha = 0.5f
+                // Smooth bottom-sheet slide-up with hardware acceleration
+                card.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                card.translationY = popupHeight.toFloat()
                 windowManager?.addView(view, params)
                 overlayView = view
 
-                view.animate()
+                card.animate()
                     .translationY(0f)
-                    .alpha(1f)
-                    .setDuration(400)
+                    .setDuration(360)
                     .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f))
+                    .withEndAction {
+                        try { card.setLayerType(View.LAYER_TYPE_NONE, null) } catch (ignored: Exception) {}
+                    }
                     .start()
 
                 // Auto dismiss after 6 seconds
@@ -262,12 +308,13 @@ class BudsOverlayService : Service() {
             try {
                 val current = overlayView ?: return@launch
                 overlayView = null
-                val h = current.height.takeIf { it > 0 } ?: 900
-                current.animate()
+                val card = current.findViewById<View>(R.id.cardContainer) ?: current
+                val h = card.height.takeIf { it > 0 } ?: 900
+                card.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                card.animate()
                     .translationY(h.toFloat())
-                    .alpha(0f)
-                    .setDuration(260)
-                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.5f))
+                    .setDuration(240)
+                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.6f))
                     .withEndAction {
                         try {
                             windowManager?.removeView(current)

@@ -163,36 +163,41 @@ class BudsBluetoothManager(private val context: Context) {
         val lowerName = deviceName.lowercase()
         val isOverEar = lowerName.contains("edifier") ||
                 lowerName.contains("w800") ||
+                lowerName.contains("w820") ||
                 lowerName.contains("wh-") ||
                 lowerName.contains("max") ||
                 lowerName.contains("over-ear")
 
-        // 1. Realme / Oppo / OnePlus Serial Protocol via SPP socket
-        if (lowerName.contains("realme") || lowerName.contains("buds") || lowerName.contains("oppo")) {
-            val realmeBattery = queryRealmeSerial(device, deviceName)
-            if (realmeBattery != null) return@withContext realmeBattery
-        }
-
-        // 2. Android Standard Battery Level API
-        val stdLevel = getStandardBatteryLevel(device)
-        if (stdLevel != null && stdLevel in 1..100) {
-            return@withContext if (isOverEar) {
-                BudsBatteryState(
+        // 1. If Over-Ear / Edifier, read standard Android Bluetooth battery API directly
+        if (isOverEar) {
+            val stdLevel = getStandardBatteryLevel(device)
+            if (stdLevel != null && stdLevel in 1..100) {
+                return@withContext BudsBatteryState(
                     deviceName = deviceName,
                     left = BatteryComponent(stdLevel, false),
                     right = BatteryComponent(stdLevel, false),
                     case = BatteryComponent.Unavailable,
                     isOverEar = true
                 )
-            } else {
-                BudsBatteryState(
-                    deviceName = deviceName,
-                    left = BatteryComponent(stdLevel, false),
-                    right = BatteryComponent(stdLevel, false),
-                    case = BatteryComponent.Unavailable,
-                    isOverEar = false
-                )
             }
+        }
+
+        // 2. Realme / Oppo / OnePlus Serial Protocol via SPP socket
+        if (lowerName.contains("realme") || lowerName.contains("buds") || lowerName.contains("oppo")) {
+            val realmeBattery = queryRealmeSerial(device, deviceName)
+            if (realmeBattery != null) return@withContext realmeBattery
+        }
+
+        // 3. Android Standard Battery Level API fallback for TWS
+        val stdLevel = getStandardBatteryLevel(device)
+        if (stdLevel != null && stdLevel in 1..100) {
+            return@withContext BudsBatteryState(
+                deviceName = deviceName,
+                left = BatteryComponent(stdLevel, false),
+                right = BatteryComponent(stdLevel, false),
+                case = BatteryComponent.Unavailable,
+                isOverEar = false
+            )
         }
 
         null
@@ -270,25 +275,6 @@ class BudsBluetoothManager(private val context: Context) {
             }
         }
 
-        // Direct pair scan fallback: [comp, raw] pairs
-        if (leftComp == null && rightComp == null) {
-            for (i in 0 until read - 1) {
-                val comp = buffer[i].toInt() and 0xFF
-                val raw = buffer[i + 1].toInt() and 0xFF
-                val level = raw and 0x7F
-                val isCharging = (raw and 0x80) != 0
-
-                if (comp in 1..3 && level in 1..100) {
-                    val compInfo = BatteryComponent(level, isCharging)
-                    when (comp) {
-                        1 -> if (leftComp == null) leftComp = compInfo
-                        2 -> if (rightComp == null) rightComp = compInfo
-                        3 -> if (caseComp == null) caseComp = compInfo
-                    }
-                }
-            }
-        }
-
         // If at initial connection only master earbud reported, synchronize to both buds so right is never blank
         if (leftComp != null && rightComp == null) {
             rightComp = leftComp
@@ -324,6 +310,12 @@ class BudsBluetoothManager(private val context: Context) {
     private val airPodsScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             result ?: return
+            // Strictly guard: only process AirPods BLE advertisements if an Apple device is connected!
+            val connected = _batteryState.value?.deviceName?.lowercase() ?: ""
+            if (!connected.contains("airpods") && !connected.contains("beats") && !connected.contains("apple")) {
+                return
+            }
+
             val record = result.scanRecord ?: return
             val mfgData = record.getManufacturerSpecificData(0x004C) ?: return
             if (mfgData.size >= 25 && (mfgData[0] == 0x07.toByte() || mfgData[0] == 0x10.toByte())) {
