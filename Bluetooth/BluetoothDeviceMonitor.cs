@@ -257,7 +257,7 @@ namespace RealmeBudsPopup.Bluetooth
                 try
                 {
                     bluetoothDevice = await BluetoothDevice.FromIdAsync(deviceId);
-                    if (bluetoothDevice != null)
+                    if (bluetoothDevice != null && bluetoothDevice.ConnectionStatus == BluetoothConnectionStatus.Connected)
                     {
                         var state = await QueryConnectedBudsInternalAsync(bluetoothDevice, deviceName);
                         if (state != null)
@@ -270,35 +270,6 @@ namespace RealmeBudsPopup.Bluetooth
                     bluetoothDevice?.Dispose();
                 }
             }
-
-            // Direct PnP scan for connected Bluetooth audio device reporting battery
-            try
-            {
-                var pnpDevs = await DeviceInformation.FindAllAsync(
-                    "System.Devices.DeviceInstanceId:~~\"BTHENUM\"",
-                    new[] { "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2" },
-                    DeviceInformationKind.Device
-                );
-
-                foreach (var dev in pnpDevs)
-                {
-                    if (dev.Properties.TryGetValue("{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2", out var val) && val != null)
-                    {
-                        byte level = Convert.ToByte(val);
-                        if (level > 0 && level <= 100)
-                        {
-                            string cleanName = dev.Name.Replace(" Hands-Free AG", "").Replace(" Stereo", "").Trim();
-                            return new BudsBatteryState(
-                                cleanName,
-                                new BatteryComponent(level, false),
-                                new BatteryComponent(level, false),
-                                BatteryComponent.Unavailable
-                            );
-                        }
-                    }
-                }
-            }
-            catch { }
 
             return null;
         }

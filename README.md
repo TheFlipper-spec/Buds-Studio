@@ -19,7 +19,7 @@ Official builds are available on the [GitHub Releases](https://github.com/TheFli
 
 | Platform | Package | Architecture / SDK | Description |
 |---|---|---|---|
-| **Windows** | [`RealmeBudsPopup.exe`](https://github.com/TheFlipper-spec/Buds-Studio/releases/download/v1.0.0/RealmeBudsPopup.exe) | Windows 10 / 11 (x64) | Standalone single-file executable, zero runtime installation required. |
+| **Windows** | [`BudsStudio.exe`](https://github.com/TheFlipper-spec/Buds-Studio/releases/download/v1.0.0/BudsStudio.exe) | Windows 10 / 11 (x64) | Standalone single-file executable, zero runtime installation required. |
 | **Android** | [`Buds-Studio-v1.0.0.apk`](https://github.com/TheFlipper-spec/Buds-Studio/releases/download/v1.0.0/Buds-Studio-v1.0.0.apk) | Android 7.0+ (API 24+) | Native Jetpack Compose app with background Bluetooth service and floating HUD. |
 
 ---

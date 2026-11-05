@@ -8,7 +8,7 @@ namespace RealmeBudsPopup.Services
     public static class StartupManager
     {
         private const string RunRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-        private const string AppName = "RealmeBudsPopup";
+        private const string AppName = "BudsStudio";
 
         public static string GetExecutablePath()
         {
