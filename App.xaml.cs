@@ -148,7 +148,19 @@ namespace RealmeBudsPopup
             {
                 try
                 {
-                    var live = await RealmeSerialProtocol.QueryBatteryViaSerialAsync("realme Buds T500 Pro");
+                    // 1. Query active Bluetooth audio device (Edifier, Sony, Apple, etc.)
+                    BudsBatteryState? live = null;
+                    if (_coordinator != null)
+                    {
+                        live = await _coordinator.QueryActiveDeviceBatteryAsync();
+                    }
+
+                    // 2. Query Realme serial protocol
+                    if (live == null)
+                    {
+                        live = await RealmeSerialProtocol.QueryBatteryViaSerialAsync("realme Buds T500 Pro");
+                    }
+
                     if (live != null)
                     {
                         bool caseNowAvailable = live.Case.IsAvailable && live.Case.Percent.HasValue && live.Case.Percent.Value > 0;
@@ -191,11 +203,12 @@ namespace RealmeBudsPopup
                     }
                     else
                     {
-                        if (_isCurrentlyConnected)
+                        if (_isCurrentlyConnected && (_coordinator == null || !_coordinator.HasActiveDevices))
                         {
                             // PHYSICAL DISCONNECTION
                             _isCurrentlyConnected = false;
                             _lastCaseWasAvailable = false;
+                            _lastKnownRealState = null;
                             UpdateTrayBatteryDisplay(null);
                             if (_settingsWindow != null && _settingsWindow.IsLoaded)
                             {
@@ -211,39 +224,47 @@ namespace RealmeBudsPopup
 
         public async Task TriggerDesktopPopupAsync()
         {
-            // 1. Attempt to read live battery directly
+            // 1. Query live active device from Bluetooth coordinator (Edifier, Sony, etc.)
+            if (_coordinator != null)
+            {
+                var btBattery = await _coordinator.QueryActiveDeviceBatteryAsync();
+                if (btBattery != null)
+                {
+                    _lastKnownRealState = btBattery;
+                    AutoDetectHeadphoneModel(btBattery.DeviceName);
+                    UpdateTrayBatteryDisplay(btBattery);
+                    ShowPopupWindow(btBattery);
+                    return;
+                }
+            }
+
+            // 2. Query Realme serial protocol
             var realBattery = await RealmeSerialProtocol.QueryBatteryViaSerialAsync("realme Buds T500 Pro");
             if (realBattery != null)
             {
                 _lastKnownRealState = realBattery;
+                AutoDetectHeadphoneModel(realBattery.DeviceName);
                 UpdateTrayBatteryDisplay(realBattery);
                 ShowPopupWindow(realBattery);
                 return;
             }
 
-            // 2. If momentarily busy, use the last confirmed real state
+            // 3. Fallback: last confirmed real state
             if (_lastKnownRealState != null)
             {
+                AutoDetectHeadphoneModel(_lastKnownRealState.DeviceName);
                 ShowPopupWindow(_lastKnownRealState);
                 return;
             }
 
-            // 3. Fallback: query any paired device
-            var anyFound = await RealmeSerialProtocol.QueryBatteryViaSerialAsync("realme Buds T500 Pro");
-            if (anyFound != null)
-            {
-                _lastKnownRealState = anyFound;
-                ShowPopupWindow(anyFound);
-                return;
-            }
-
-            // 4. Default realistic initial state (80% / 80% as user's headphones)
+            // 4. Default realistic preview
             var initialRealistic = new BudsBatteryState(
                 "realme Buds T500 Pro",
                 new BatteryComponent(80, false),
                 new BatteryComponent(80, false),
-                BatteryComponent.Unavailable
+                new BatteryComponent(60, false)
             );
+            AutoDetectHeadphoneModel(initialRealistic.DeviceName);
             ShowPopupWindow(initialRealistic);
         }
 

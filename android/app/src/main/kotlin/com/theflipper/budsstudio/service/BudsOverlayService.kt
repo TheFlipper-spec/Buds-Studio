@@ -130,61 +130,77 @@ class BudsOverlayService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val collapsedView = RemoteViews(packageName, R.layout.notification_buds_collapsed)
-        val expandedView = RemoteViews(packageName, R.layout.notification_buds_expanded)
+        try {
+            val collapsedView = RemoteViews(packageName, R.layout.notification_buds_collapsed)
+            val expandedView = RemoteViews(packageName, R.layout.notification_buds_expanded)
 
-        if (state != null) {
-            collapsedView.setTextViewText(R.id.txtNotifCollapsedTitle, state.deviceName)
-            expandedView.setTextViewText(R.id.txtNotifDeviceName, state.deviceName)
-            expandedView.setTextViewText(R.id.txtNotifHeaderStatus, "Подключено")
+            if (state != null) {
+                collapsedView.setTextViewText(R.id.txtNotifCollapsedTitle, state.deviceName)
+                expandedView.setTextViewText(R.id.txtNotifDeviceName, state.deviceName)
+                expandedView.setTextViewText(R.id.txtNotifHeaderStatus, "Подключено")
 
-            if (state.isOverEar) {
-                val valText = state.left?.displayText ?: "—"
-                collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "Заряд: $valText")
+                if (state.isOverEar) {
+                    val valText = state.left?.displayText ?: "—"
+                    collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "Заряд: $valText")
 
-                expandedView.setViewVisibility(R.id.layoutNotifTws, View.GONE)
-                expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.VISIBLE)
-                expandedView.setTextViewText(R.id.txtNotifOverEarPercent, valText)
-                expandedView.setTextViewText(R.id.txtNotifOverEarStatus, "Наушники • Подключено")
+                    expandedView.setViewVisibility(R.id.layoutNotifTws, View.GONE)
+                    expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.VISIBLE)
+                    expandedView.setTextViewText(R.id.txtNotifOverEarPercent, valText)
+                    expandedView.setTextViewText(R.id.txtNotifOverEarStatus, "Наушники • Подключено")
+                } else {
+                    val lText = state.left?.displayText ?: "—"
+                    val rText = state.right?.displayText ?: "—"
+                    val cText = state.case?.displayText ?: "—"
+                    collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "L: $lText | Кейс: $cText | R: $rText")
+
+                    expandedView.setViewVisibility(R.id.layoutNotifTws, View.VISIBLE)
+                    expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.GONE)
+
+                    expandedView.setTextViewText(R.id.txtNotifLeftPercent, lText)
+                    expandedView.setTextViewText(R.id.txtNotifLeftStatus, if (state.left?.isAvailable == true) "В ухе" else "—")
+
+                    expandedView.setTextViewText(R.id.txtNotifCasePercent, cText)
+                    expandedView.setTextViewText(R.id.txtNotifCaseStatus, if (state.case?.isAvailable == true && (state.case.percent ?: 0) > 0) "Открыт" else "Кейс")
+
+                    expandedView.setTextViewText(R.id.txtNotifRightPercent, rText)
+                    expandedView.setTextViewText(R.id.txtNotifRightStatus, if (state.right?.isAvailable == true) "В ухе" else "—")
+                }
             } else {
-                val lText = state.left?.displayText ?: "—"
-                val rText = state.right?.displayText ?: "—"
-                val cText = state.case?.displayText ?: "—"
-                collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "L: $lText | Кейс: $cText | R: $rText")
+                collapsedView.setTextViewText(R.id.txtNotifCollapsedTitle, "Buds Studio Pro")
+                collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "Поиск Bluetooth...")
 
+                expandedView.setTextViewText(R.id.txtNotifDeviceName, "Buds Studio Pro")
+                expandedView.setTextViewText(R.id.txtNotifHeaderStatus, "Ожидание...")
                 expandedView.setViewVisibility(R.id.layoutNotifTws, View.VISIBLE)
                 expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.GONE)
-
-                expandedView.setTextViewText(R.id.txtNotifLeftPercent, lText)
-                expandedView.setTextViewText(R.id.txtNotifLeftStatus, if (state.left?.isAvailable == true) "В ухе" else "—")
-
-                expandedView.setTextViewText(R.id.txtNotifCasePercent, cText)
-                expandedView.setTextViewText(R.id.txtNotifCaseStatus, if (state.case?.isAvailable == true && (state.case.percent ?: 0) > 0) "Открыт" else "Кейс")
-
-                expandedView.setTextViewText(R.id.txtNotifRightPercent, rText)
-                expandedView.setTextViewText(R.id.txtNotifRightStatus, if (state.right?.isAvailable == true) "В ухе" else "—")
+                expandedView.setTextViewText(R.id.txtNotifLeftPercent, "—")
+                expandedView.setTextViewText(R.id.txtNotifCasePercent, "—")
+                expandedView.setTextViewText(R.id.txtNotifRightPercent, "—")
             }
-        } else {
-            collapsedView.setTextViewText(R.id.txtNotifCollapsedTitle, "Buds Studio Pro")
-            collapsedView.setTextViewText(R.id.txtNotifCollapsedBattery, "Поиск Bluetooth...")
 
-            expandedView.setTextViewText(R.id.txtNotifDeviceName, "Buds Studio Pro")
-            expandedView.setTextViewText(R.id.txtNotifHeaderStatus, "Ожидание...")
-            expandedView.setViewVisibility(R.id.layoutNotifTws, View.VISIBLE)
-            expandedView.setViewVisibility(R.id.layoutNotifOverEar, View.GONE)
-            expandedView.setTextViewText(R.id.txtNotifLeftPercent, "—")
-            expandedView.setTextViewText(R.id.txtNotifCasePercent, "—")
-            expandedView.setTextViewText(R.id.txtNotifRightPercent, "—")
+            return NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notif_status)
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomContentView(collapsedView)
+                .setCustomBigContentView(expandedView)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .build()
+        } catch (e: Exception) {
+            val title = state?.deviceName ?: "Buds Studio Pro"
+            val text = if (state != null) {
+                if (state.isOverEar) "Заряд: ${state.left?.displayText ?: "—"}"
+                else "L: ${state.left?.displayText ?: "—"} | Кейс: ${state.case?.displayText ?: "—"} | R: ${state.right?.displayText ?: "—"}"
+            } else "Ожидание подключения Bluetooth..."
+
+            return NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notif_status)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .build()
         }
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setCustomContentView(collapsedView)
-            .setCustomBigContentView(expandedView)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .build()
     }
 
     private fun updateNotification(state: BudsBatteryState?) {
@@ -310,11 +326,11 @@ class BudsOverlayService : Service() {
                 overlayView = null
                 val card = current.findViewById<View>(R.id.cardContainer) ?: current
                 val h = card.height.takeIf { it > 0 } ?: 900
-                card.setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 card.animate()
                     .translationY(h.toFloat())
-                    .setDuration(240)
-                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.6f))
+                    .alpha(0f)
+                    .setDuration(220)
+                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.5f))
                     .withEndAction {
                         try {
                             windowManager?.removeView(current)

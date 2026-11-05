@@ -120,13 +120,17 @@ namespace RealmeBudsPopup.Views
 
             Dispatcher.Invoke(() =>
             {
-                // Auto-detect Over-Ear if device name is Edifier, WH-1000, etc.
+                // Auto-detect Over-Ear or TWS Buds based on connected device name
                 string name = state.DeviceName.ToLowerInvariant();
-                if (name.Contains("edifier") || name.Contains("wh-") || name.Contains("max"))
+                if (name.Contains("edifier") || name.Contains("wh-") || name.Contains("max") || name.Contains("w800") || name.Contains("w820") || name.Contains("over-ear"))
                 {
                     ThemeSettings.Current.ModelType = HeadphoneModelType.OverEar;
-                    ApplyThemeAndColors();
                 }
+                else
+                {
+                    ThemeSettings.Current.ModelType = HeadphoneModelType.InEar;
+                }
+                ApplyThemeAndColors();
 
                 if (ThemeSettings.Current.ModelType == HeadphoneModelType.OverEar)
                 {

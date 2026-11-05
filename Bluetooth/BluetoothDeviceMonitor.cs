@@ -244,13 +244,95 @@ namespace RealmeBudsPopup.Bluetooth
             return null;
         }
 
+        public bool HasActiveDevices => !_activeConnectedDevices.IsEmpty;
+
+        public async Task<BudsBatteryState?> QueryActiveDeviceBatteryAsync()
+        {
+            foreach (var kvp in _activeConnectedDevices)
+            {
+                string deviceId = kvp.Key;
+                string deviceName = kvp.Value.Name;
+
+                BluetoothDevice? bluetoothDevice = null;
+                try
+                {
+                    bluetoothDevice = await BluetoothDevice.FromIdAsync(deviceId);
+                    if (bluetoothDevice != null)
+                    {
+                        var state = await QueryConnectedBudsInternalAsync(bluetoothDevice, deviceName);
+                        if (state != null)
+                            return state;
+                    }
+                }
+                catch { }
+                finally
+                {
+                    bluetoothDevice?.Dispose();
+                }
+            }
+
+            // Direct PnP scan for connected Bluetooth audio device reporting battery
+            try
+            {
+                var pnpDevs = await DeviceInformation.FindAllAsync(
+                    "System.Devices.DeviceInstanceId:~~\"BTHENUM\"",
+                    new[] { "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2" },
+                    DeviceInformationKind.Device
+                );
+
+                foreach (var dev in pnpDevs)
+                {
+                    if (dev.Properties.TryGetValue("{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2", out var val) && val != null)
+                    {
+                        byte level = Convert.ToByte(val);
+                        if (level > 0 && level <= 100)
+                        {
+                            string cleanName = dev.Name.Replace(" Hands-Free AG", "").Replace(" Stereo", "").Trim();
+                            return new BudsBatteryState(
+                                cleanName,
+                                new BatteryComponent(level, false),
+                                new BatteryComponent(level, false),
+                                BatteryComponent.Unavailable
+                            );
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return null;
+        }
+
         private static async Task<BudsBatteryState?> TryQueryWindowsPnpBatteryAsync(string deviceName, string macHex)
         {
             try
             {
+                string[] props = new[] { "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2" };
+
+                // 1. Search by MAC hex address in DeviceInstanceId
                 string aqs = $"System.Devices.DeviceInstanceId:~~\"{macHex}\"";
-                var devs = await DeviceInformation.FindAllAsync(aqs, new[] { "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2" });
+                var devs = await DeviceInformation.FindAllAsync(aqs, props, DeviceInformationKind.Device);
                 foreach (var dev in devs)
+                {
+                    if (dev.Properties.TryGetValue("{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2", out var val) && val != null)
+                    {
+                        byte level = Convert.ToByte(val);
+                        if (level > 0 && level <= 100)
+                        {
+                            return new BudsBatteryState(
+                                deviceName,
+                                new BatteryComponent(level, false),
+                                new BatteryComponent(level, false),
+                                BatteryComponent.Unavailable
+                            );
+                        }
+                    }
+                }
+
+                // 2. Search by deviceName
+                string nameAqs = $"System.ItemNameDisplay:~~\"{deviceName}\"";
+                var nameDevs = await DeviceInformation.FindAllAsync(nameAqs, props, DeviceInformationKind.Device);
+                foreach (var dev in nameDevs)
                 {
                     if (dev.Properties.TryGetValue("{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2", out var val) && val != null)
                     {

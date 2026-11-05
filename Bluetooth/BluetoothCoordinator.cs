@@ -35,6 +35,10 @@ namespace RealmeBudsPopup.Bluetooth
             _bleService.BatteryAdvertisementReceived += OnBatteryTelemetryQuietUpdate;
         }
 
+        public bool HasActiveDevices => _deviceMonitor.HasActiveDevices;
+
+        public Task<BudsBatteryState?> QueryActiveDeviceBatteryAsync() => _deviceMonitor.QueryActiveDeviceBatteryAsync();
+
         public void Start()
         {
             _bleService.Start();

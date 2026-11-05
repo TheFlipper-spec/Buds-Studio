@@ -223,12 +223,23 @@ class BudsBluetoothManager(private val context: Context) {
             os.write(QUERY_COMMAND)
             os.flush()
 
-            Thread.sleep(120)
+            val buffer = ByteArray(512)
+            var totalRead = 0
+            val deadline = System.currentTimeMillis() + 600
+            while (System.currentTimeMillis() < deadline && totalRead < buffer.size) {
+                if (`is`.available() > 0) {
+                    val r = `is`.read(buffer, totalRead, buffer.size - totalRead)
+                    if (r > 0) {
+                        totalRead += r
+                        if (hasOppoBatteryPacket(buffer, totalRead)) break
+                    }
+                } else {
+                    Thread.sleep(25)
+                }
+            }
 
-            val buffer = ByteArray(256)
-            val read = `is`.read(buffer)
-            if (read > 0) {
-                val parsed = parseOppoBattery(buffer, read, deviceName)
+            if (totalRead > 0) {
+                val parsed = parseOppoBattery(buffer, totalRead, deviceName)
                 if (parsed != null) return parsed
             }
         } catch (e: Exception) {
@@ -239,54 +250,143 @@ class BudsBluetoothManager(private val context: Context) {
         return null
     }
 
-    private fun parseOppoBattery(buffer: ByteArray, read: Int, deviceName: String): BudsBatteryState? {
-        var leftComp: BatteryComponent? = null
-        var rightComp: BatteryComponent? = null
-        var caseComp: BatteryComponent? = null
-
-        // Scan for response Cmd 0x8106 (0x06, 0x81) or push event 0x0204 (0x04, 0x02)
-        for (i in 0 until read - 6) {
+    private fun hasOppoBatteryPacket(buffer: ByteArray, len: Int): Boolean {
+        for (i in 0 until len - 2) {
             val b0 = buffer[i].toInt() and 0xFF
             val b1 = buffer[i + 1].toInt() and 0xFF
-
             if ((b0 == 0x06 && b1 == 0x81) || (b0 == 0x04 && b1 == 0x02)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun parseOppoBattery(buffer: ByteArray, totalRead: Int, deviceName: String): BudsBatteryState? {
+        // 1. Scan for response Cmd 0x8106 (0x06, 0x81)
+        for (i in 0 until totalRead - 8) {
+            val b0 = buffer[i].toInt() and 0xFF
+            val b1 = buffer[i + 1].toInt() and 0xFF
+            if (b0 == 0x06 && b1 == 0x81) {
+                val payLen = (buffer[i + 3].toInt() and 0xFF) or ((buffer[i + 4].toInt() and 0xFF) shl 8)
                 val payStart = i + 5
-                var p = payStart
-                if (p < read && buffer[p] == 0x00.toByte()) p++
+                if (payStart + payLen <= totalRead) {
+                    val payload = buffer.copyOfRange(payStart, payStart + payLen)
+                    val result = parseOppoPayload(payload, deviceName)
+                    if (result != null) return result
+                }
+            }
+        }
 
-                while (p + 1 < read) {
-                    val comp = buffer[p].toInt() and 0xFF
-                    val raw = buffer[p + 1].toInt() and 0xFF
-                    val level = raw and 0x7F
-                    val isCharging = (raw and 0x80) != 0
+        // 2. Scan for push event Cmd 0x0204 (0x04, 0x02)
+        for (i in 0 until totalRead - 8) {
+            val b0 = buffer[i].toInt() and 0xFF
+            val b1 = buffer[i + 1].toInt() and 0xFF
+            if (b0 == 0x04 && b1 == 0x02) {
+                val payLen = (buffer[i + 3].toInt() and 0xFF) or ((buffer[i + 4].toInt() and 0xFF) shl 8)
+                val payStart = i + 5
+                if (payStart + payLen <= totalRead) {
+                    var payload = buffer.copyOfRange(payStart, payStart + payLen)
+                    if (payload.isNotEmpty() && payload[0] == 0x01.toByte()) {
+                        payload = payload.copyOfRange(1, payload.size)
+                    }
+                    val result = parseOppoPayload(payload, deviceName)
+                    if (result != null) return result
+                }
+            }
+        }
 
-                    if (comp in 1..3) {
-                        val compInfo = if (level in 1..100) BatteryComponent(level, isCharging) else null
-                        when (comp) {
-                            1 -> leftComp = compInfo
-                            2 -> rightComp = compInfo
-                            3 -> caseComp = compInfo
+        // 3. Fallback: Parse whole frame if starts with 0xAA
+        if (totalRead >= 9 && buffer[0] == 0xAA.toByte()) {
+            var offset = 1
+            while (offset < totalRead && (buffer[offset].toInt() and 0x80) != 0) {
+                offset++
+            }
+            offset++ // Skip length byte
+            if (offset + 6 <= totalRead) {
+                offset += 2 // Skip slice and zero
+                val cmd = (buffer[offset].toInt() and 0xFF) or ((buffer[offset + 1].toInt() and 0xFF) shl 8)
+                offset += 3 // Skip cmd + seq
+                if (offset + 2 <= totalRead) {
+                    val payLen = (buffer[offset].toInt() and 0xFF) or ((buffer[offset + 1].toInt() and 0xFF) shl 8)
+                    offset += 2
+                    if (offset + payLen <= totalRead) {
+                        var payload = buffer.copyOfRange(offset, offset + payLen)
+                        if (cmd == 0x8106) {
+                            return parseOppoPayload(payload, deviceName)
+                        } else if (cmd == 0x0204 && payload.isNotEmpty() && payload[0] == 0x01.toByte()) {
+                            payload = payload.copyOfRange(1, payload.size)
+                            return parseOppoPayload(payload, deviceName)
                         }
-                        p += 2
-                    } else {
-                        p++
                     }
                 }
             }
         }
 
-        // If at initial connection only master earbud reported, synchronize to both buds so right is never blank
-        if (leftComp != null && rightComp == null) {
-            rightComp = leftComp
-        } else if (rightComp != null && leftComp == null) {
-            leftComp = rightComp
+        return null
+    }
+
+    private fun parseOppoPayload(rawPayload: ByteArray, deviceName: String): BudsBatteryState? {
+        var data = rawPayload
+        if (data.size >= 2 && data[0] == 0x00.toByte()) {
+            data = data.copyOfRange(1, data.size)
+        }
+        if (data.isEmpty()) return null
+
+        val count = data[0].toInt() and 0xFF
+        var left: BatteryComponent? = null
+        var right: BatteryComponent? = null
+        var caseComp: BatteryComponent? = null
+
+        // Pattern A: count of items followed by (comp, raw) pairs
+        if (count in 1..8 && data.size >= 1 + count * 2) {
+            for (i in 0 until count) {
+                val comp = data[1 + i * 2].toInt() and 0xFF
+                val raw = data[2 + i * 2].toInt() and 0xFF
+                val level = raw and 0x7F
+                val charging = (raw and 0x80) != 0
+                val compInfo = if (level in 1..100) BatteryComponent(level, charging) else null
+                when (comp) {
+                    1 -> left = compInfo
+                    2 -> right = compInfo
+                    3 -> caseComp = compInfo
+                }
+            }
         }
 
-        if (leftComp != null || rightComp != null) {
+        // Pattern B: direct (comp, raw) pairs without count header
+        if (left == null && right == null && caseComp == null) {
+            var i = 0
+            while (i + 1 < data.size) {
+                val comp = data[i].toInt() and 0xFF
+                val raw = data[i + 1].toInt() and 0xFF
+                if (comp in 1..3) {
+                    val level = raw and 0x7F
+                    val charging = (raw and 0x80) != 0
+                    val compInfo = if (level in 1..100) BatteryComponent(level, charging) else null
+                    when (comp) {
+                        1 -> left = compInfo
+                        2 -> right = compInfo
+                        3 -> caseComp = compInfo
+                    }
+                    i += 2
+                } else {
+                    i++
+                }
+            }
+        }
+
+        // If only one earbud is reported (single bud taken out), mirror level so both show up
+        if (left != null && right == null) {
+            right = left
+        } else if (right != null && left == null) {
+            left = right
+        }
+
+        if (left != null || right != null || caseComp != null) {
             return BudsBatteryState(
                 deviceName = deviceName,
-                left = leftComp,
-                right = rightComp,
+                left = left,
+                right = right,
                 case = caseComp ?: BatteryComponent.Unavailable,
                 isOverEar = false
             )
