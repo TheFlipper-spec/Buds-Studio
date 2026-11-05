@@ -16,6 +16,16 @@ namespace RealmeBudsPopup.Views
         private bool _isClosing;
         private BudsBatteryState? _currentState;
 
+        public bool IsClosed => _isClosing;
+
+        public void DismissNow()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                PlaySlideOutAndClose();
+            });
+        }
+
         public BudsPopupWindow(BudsBatteryState? initialState = null)
         {
             InitializeComponent();
@@ -30,6 +40,23 @@ namespace RealmeBudsPopup.Views
             Loaded += OnWindowLoaded;
             MouseEnter += OnMouseEnter;
             MouseLeave += OnMouseLeave;
+
+            if (initialState != null)
+            {
+                string name = initialState.DeviceName.ToLowerInvariant();
+                if (name.Contains("buds") || name.Contains("t500") || name.Contains("realme") || name.Contains("oppo") || name.Contains("freebuds"))
+                {
+                    ThemeSettings.Current.ModelType = HeadphoneModelType.InEar;
+                }
+                else if (name.Contains("edifier") || name.Contains("wh-1000") || name.Contains("airpods max") || name.Contains("w800") || name.Contains("w820") || name.Contains("over-ear"))
+                {
+                    ThemeSettings.Current.ModelType = HeadphoneModelType.OverEar;
+                }
+                else
+                {
+                    ThemeSettings.Current.ModelType = HeadphoneModelType.InEar;
+                }
+            }
 
             ApplyThemeAndColors();
 
@@ -116,13 +143,24 @@ namespace RealmeBudsPopup.Views
 
         public void UpdateState(BudsBatteryState state)
         {
+            if (_isClosing) return;
             _currentState = state;
 
             Dispatcher.Invoke(() =>
             {
+                if (_isClosing) return;
+
+                // Reset dismiss timer so updated case battery stays on screen
+                _dismissTimer.Stop();
+                _dismissTimer.Start();
+
                 // Auto-detect Over-Ear or TWS Buds based on connected device name
                 string name = state.DeviceName.ToLowerInvariant();
-                if (name.Contains("edifier") || name.Contains("wh-") || name.Contains("max") || name.Contains("w800") || name.Contains("w820") || name.Contains("over-ear"))
+                if (name.Contains("buds") || name.Contains("t500") || name.Contains("realme") || name.Contains("oppo") || name.Contains("freebuds"))
+                {
+                    ThemeSettings.Current.ModelType = HeadphoneModelType.InEar;
+                }
+                else if (name.Contains("edifier") || name.Contains("wh-1000") || name.Contains("airpods max") || name.Contains("w800") || name.Contains("w820") || name.Contains("over-ear"))
                 {
                     ThemeSettings.Current.ModelType = HeadphoneModelType.OverEar;
                 }

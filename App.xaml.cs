@@ -35,19 +35,25 @@ namespace RealmeBudsPopup
             if (string.IsNullOrWhiteSpace(deviceName)) return;
             string lower = deviceName.ToLowerInvariant();
 
+            // Realme, Oppo, OnePlus, TWS in-ear buds are NEVER Over-Ear!
+            if (lower.Contains("buds") || lower.Contains("t500") || lower.Contains("realme") || lower.Contains("oppo") || lower.Contains("in-ear") || lower.Contains("airpods pro") || lower.Contains("freebuds"))
+            {
+                ThemeSettings.Current.ModelType = HeadphoneModelType.InEar;
+                return;
+            }
+
             var targetModel = (lower.Contains("edifier") ||
                                lower.Contains("w800") ||
-                               lower.Contains("wh-") ||
-                               lower.Contains("max") ||
-                               lower.Contains("over-ear") ||
-                               lower.Contains("headphone"))
+                               lower.Contains("w820") ||
+                               lower.Contains("wh-1000") ||
+                               lower.Contains("airpods max") ||
+                               lower.Contains("over-ear"))
                 ? HeadphoneModelType.OverEar
                 : HeadphoneModelType.InEar;
 
             if (ThemeSettings.Current.ModelType != targetModel)
             {
                 ThemeSettings.Current.ModelType = targetModel;
-                ThemeSettings.Current.Save();
             }
         }
 
@@ -175,21 +181,13 @@ namespace RealmeBudsPopup
                             UpdateTrayBatteryDisplay(live);
                             ShowPopupWindow(live);
                         }
-                        else if (!_lastCaseWasAvailable && caseNowAvailable)
-                        {
-                            // CASE OPENED / BUDS INSERTED INTO CASE: Trigger popup to show case battery
-                            _lastCaseWasAvailable = true;
-                            _lastKnownRealState = live;
-                            UpdateTrayBatteryDisplay(live);
-                            ShowPopupWindow(live);
-                        }
                         else
                         {
-                            // Continuous telemetry update
+                            // Continuous telemetry update (never spawn duplicate windows)
                             _lastCaseWasAvailable = caseNowAvailable;
                             _lastKnownRealState = live;
                             UpdateTrayBatteryDisplay(live);
-                            if (_activePopup != null && _activePopup.IsLoaded)
+                            if (_activePopup != null && !_activePopup.IsClosed)
                             {
                                 _activePopup.UpdateState(live);
                             }
@@ -489,6 +487,8 @@ namespace RealmeBudsPopup
                     UpdateTrayBatteryDisplay(null);
                     Dispatcher.Invoke(() =>
                     {
+                        _activePopup?.DismissNow();
+                        _activePopup = null;
                         if (_settingsWindow != null && _settingsWindow.IsLoaded)
                         {
                             _settingsWindow.UpdateLiveBatteryState(null);
@@ -509,15 +509,21 @@ namespace RealmeBudsPopup
             {
                 try
                 {
-                    var now = DateTime.UtcNow;
-                    if (_activePopup != null && _activePopup.IsLoaded)
+                    AutoDetectHeadphoneModel(state.DeviceName);
+
+                    if (_activePopup != null && !_activePopup.IsClosed)
                     {
                         _activePopup.UpdateState(state);
                         return;
                     }
 
-                    if ((now - _lastPopupShownTime).TotalSeconds < 3.0)
+                    var now = DateTime.UtcNow;
+                    if ((now - _lastPopupShownTime).TotalSeconds < 7.0)
                     {
+                        if (_activePopup != null && !_activePopup.IsClosed)
+                        {
+                            _activePopup.UpdateState(state);
+                        }
                         return;
                     }
                     _lastPopupShownTime = now;

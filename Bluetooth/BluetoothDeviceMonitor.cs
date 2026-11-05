@@ -149,8 +149,15 @@ namespace RealmeBudsPopup.Bluetooth
                 try
                 {
                     bluetoothDevice = await BluetoothDevice.FromIdAsync(deviceInfo.Id);
-                    if (bluetoothDevice == null)
+                    if (bluetoothDevice == null || bluetoothDevice.ConnectionStatus != BluetoothConnectionStatus.Connected)
+                    {
+                        if (_activeConnectedDevices.TryRemove(deviceInfo.Id, out var devInfo))
+                        {
+                            _bleService.UnregisterKnownDevice(devInfo.Address);
+                            DeviceDisconnected?.Invoke(this, devInfo.Name);
+                        }
                         return;
+                    }
 
                     string deviceName = deviceInfo.Name;
                     ulong address = bluetoothDevice.BluetoothAddress;
@@ -209,6 +216,14 @@ namespace RealmeBudsPopup.Bluetooth
 
                 // 1. Realme / Oppo / OnePlus Serial Protocol
                 var serialBattery = await RealmeSerialProtocol.QueryBatteryViaSerialAsync(deviceName, macHex);
+                if (serialBattery == null && (deviceName.Contains("realme", StringComparison.OrdinalIgnoreCase) ||
+                                              deviceName.Contains("buds", StringComparison.OrdinalIgnoreCase) ||
+                                              deviceName.Contains("t500", StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Allow virtual COM port to finish binding so case battery is ready on the first popup
+                    await Task.Delay(350);
+                    serialBattery = await RealmeSerialProtocol.QueryBatteryViaSerialAsync(deviceName, macHex);
+                }
                 if (serialBattery != null)
                     return serialBattery;
 
