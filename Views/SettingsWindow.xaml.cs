@@ -82,7 +82,10 @@ namespace RealmeBudsPopup.Views
                         return;
                     }
 
-                    HeaderStatusText.Text = $"{state.DeviceName} — Подключено (COM7)";
+                    App.AutoDetectHeadphoneModel(state.DeviceName);
+                    UpdateLivePreview();
+
+                    HeaderStatusText.Text = $"{state.DeviceName} — Подключено";
                     HeaderStatusDot.Fill = new SolidColorBrush(Color.FromRgb(16, 185, 129));
 
                     var s = ThemeSettings.Current;
@@ -279,6 +282,11 @@ namespace RealmeBudsPopup.Views
 
             ThemeSettings.Current.ShowBatteryInTray = ShowInTrayCheck.IsChecked == true;
             ThemeSettings.Current.Save();
+
+            if (Application.Current is App app)
+            {
+                app.RefreshTrayIcon();
+            }
         }
 
         private void Autorun_Changed(object sender, RoutedEventArgs e)

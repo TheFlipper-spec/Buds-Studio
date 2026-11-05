@@ -16,7 +16,10 @@ namespace RealmeBudsPopup.Bluetooth
         private const uint GENERIC_WRITE = 0x40000000;
         private const uint OPEN_EXISTING = 3;
 
+        private static readonly SemaphoreSlim _serialLock = new(1, 1);
         private static string? _cachedRealmePort = "COM7";
+
+        public static string? ActivePort => _cachedRealmePort;
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern SafeFileHandle CreateFile(
@@ -86,34 +89,53 @@ namespace RealmeBudsPopup.Bluetooth
 
         public static async Task<BudsBatteryState?> QueryBatteryViaSerialAsync(string deviceName, string? macAddressHex = null)
         {
-            return await Task.Run(() =>
+            await _serialLock.WaitAsync();
+            try
             {
-                var candidatePorts = new List<string>();
-
-                // Check cached port first (e.g. COM7)
-                if (!string.IsNullOrEmpty(_cachedRealmePort))
-                    candidatePorts.Add(_cachedRealmePort);
-
-                // Add all hardware bluetooth COM ports
-                var found = FindAllBluetoothComPorts(macAddressHex);
-                foreach (var p in found)
+                return await Task.Run(() =>
                 {
-                    if (!candidatePorts.Contains(p))
-                        candidatePorts.Add(p);
-                }
+                    var candidatePorts = new List<string>();
 
-                foreach (var port in candidatePorts)
-                {
-                    var state = TryQueryPort(port, deviceName);
-                    if (state != null)
+                    // Prioritize ports matching the specific device MAC first
+                    if (!string.IsNullOrEmpty(macAddressHex))
                     {
-                        _cachedRealmePort = port;
-                        return state;
+                        var macPorts = FindAllBluetoothComPorts(macAddressHex);
+                        foreach (var p in macPorts)
+                        {
+                            if (!candidatePorts.Contains(p))
+                                candidatePorts.Add(p);
+                        }
                     }
-                }
 
-                return null;
-            });
+                    // Check cached port next (e.g. COM7)
+                    if (!string.IsNullOrEmpty(_cachedRealmePort) && !candidatePorts.Contains(_cachedRealmePort))
+                        candidatePorts.Add(_cachedRealmePort);
+
+                    // Add all remaining hardware bluetooth COM ports
+                    var found = FindAllBluetoothComPorts(null);
+                    foreach (var p in found)
+                    {
+                        if (!candidatePorts.Contains(p))
+                            candidatePorts.Add(p);
+                    }
+
+                    foreach (var port in candidatePorts)
+                    {
+                        var state = TryQueryPort(port, deviceName);
+                        if (state != null)
+                        {
+                            _cachedRealmePort = port;
+                            return state;
+                        }
+                    }
+
+                    return null;
+                });
+            }
+            finally
+            {
+                _serialLock.Release();
+            }
         }
 
         private static BudsBatteryState? TryQueryPort(string port, string deviceName)
@@ -159,15 +181,38 @@ namespace RealmeBudsPopup.Bluetooth
                 stream.Write(query, 0, query.Length);
                 stream.Flush();
 
-                Thread.Sleep(120);
-
-                byte[] buf = new byte[256];
+                byte[] buf = new byte[512];
                 int totalRead = 0;
-                try
+                var deadline = DateTime.UtcNow.AddMilliseconds(450);
+
+                while (DateTime.UtcNow < deadline && totalRead < buf.Length - 16)
                 {
-                    totalRead = stream.Read(buf, 0, buf.Length);
+                    Thread.Sleep(45);
+                    try
+                    {
+                        int n = stream.Read(buf, totalRead, buf.Length - totalRead);
+                        if (n > 0)
+                        {
+                            totalRead += n;
+                            // Stop early once we have the 0x8106 battery response frame
+                            bool hasBatteryReply = false;
+                            for (int i = 0; i < totalRead - 8; i++)
+                            {
+                                if (buf[i] == 0x06 && buf[i + 1] == 0x81)
+                                {
+                                    int payLen = buf[i + 3] | (buf[i + 4] << 8);
+                                    if (i + 5 + payLen <= totalRead)
+                                    {
+                                        hasBatteryReply = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (hasBatteryReply) break;
+                        }
+                    }
+                    catch { break; }
                 }
-                catch { }
 
                 if (totalRead <= 0)
                     return null;

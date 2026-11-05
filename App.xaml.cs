@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +19,9 @@ namespace RealmeBudsPopup
     [SupportedOSPlatform("windows10.0.19041.0")]
     public partial class App : Application
     {
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
         private static EventWaitHandle? _wakeUpEvent;
         private NotifyIcon? _notifyIcon;
         private BluetoothCoordinator? _coordinator;
@@ -28,6 +32,10 @@ namespace RealmeBudsPopup
         private ToolStripMenuItem? _autostartMenuItem;
         private bool _lastCaseWasAvailable = false;
         private bool _isCurrentlyConnected = false;
+        private bool _isPolling = false;
+        private bool _isExiting = false;
+        private int? _lastRenderedTrayPercent = -999;
+        private DateTime _connectionStartTime = DateTime.MinValue;
         private DateTime _lastPopupShownTime = DateTime.MinValue;
 
         public static void AutoDetectHeadphoneModel(string deviceName)
@@ -152,6 +160,8 @@ namespace RealmeBudsPopup
             };
             _backgroundPollTimer.Tick += async (s, e) =>
             {
+                if (_isPolling || _isExiting) return;
+                _isPolling = true;
                 try
                 {
                     // 1. Query active Bluetooth audio device (Edifier, Sony, Apple, etc.)
@@ -175,7 +185,17 @@ namespace RealmeBudsPopup
                         {
                             // NEW PHYSICAL CONNECTION DETECTED! Trigger entrance animation
                             _isCurrentlyConnected = true;
+                            _connectionStartTime = DateTime.UtcNow;
                             _lastCaseWasAvailable = caseNowAvailable;
+                            _lastKnownRealState = live;
+                            AutoDetectHeadphoneModel(live.DeviceName);
+                            UpdateTrayBatteryDisplay(live);
+                            ShowPopupWindow(live);
+                        }
+                        else if (!_lastCaseWasAvailable && caseNowAvailable && (DateTime.UtcNow - _connectionStartTime).TotalSeconds > 8.0)
+                        {
+                            // Buds placed into open case during an active session: pop up the card
+                            _lastCaseWasAvailable = true;
                             _lastKnownRealState = live;
                             AutoDetectHeadphoneModel(live.DeviceName);
                             UpdateTrayBatteryDisplay(live);
@@ -216,6 +236,10 @@ namespace RealmeBudsPopup
                     }
                 }
                 catch { }
+                finally
+                {
+                    _isPolling = false;
+                }
             };
             _backgroundPollTimer.Start();
         }
@@ -335,6 +359,12 @@ namespace RealmeBudsPopup
             }
         }
 
+        public void RefreshTrayIcon()
+        {
+            _lastRenderedTrayPercent = -999;
+            UpdateTrayBatteryDisplay(_lastKnownRealState);
+        }
+
         public void UpdateTrayBatteryDisplay(BudsBatteryState? state)
         {
             if (_notifyIcon == null) return;
@@ -345,28 +375,39 @@ namespace RealmeBudsPopup
                 {
                     if (state == null)
                     {
-                        _notifyIcon.Icon = CreateTrayIcon(null);
-                        _notifyIcon.Text = "Buds Studio Pro (Ожидание подключения)";
+                        if (_lastRenderedTrayPercent != null)
+                        {
+                            var oldIcon = _notifyIcon.Icon;
+                            _notifyIcon.Icon = CreateTrayIcon(null);
+                            oldIcon?.Dispose();
+                            _lastRenderedTrayPercent = null;
+                        }
+                        _notifyIcon.Text = "Buds Studio (Ожидание подключения)";
                         return;
                     }
 
-                    int? mainBattery = state.Left.Percent ?? state.Right.Percent;
-                    if (ThemeSettings.Current.ShowBatteryInTray && mainBattery.HasValue)
+                    int? mainBattery = state.Left.Percent ?? state.Right.Percent ?? state.Case.Percent;
+                    int? desiredIconPercent = (ThemeSettings.Current.ShowBatteryInTray && mainBattery.HasValue)
+                        ? mainBattery.Value
+                        : null;
+
+                    if (_lastRenderedTrayPercent != desiredIconPercent)
                     {
-                        _notifyIcon.Icon = CreateTrayIcon(mainBattery.Value);
-                    }
-                    else
-                    {
-                        _notifyIcon.Icon = CreateTrayIcon(null);
+                        var oldIcon = _notifyIcon.Icon;
+                        _notifyIcon.Icon = CreateTrayIcon(desiredIconPercent);
+                        oldIcon?.Dispose();
+                        _lastRenderedTrayPercent = desiredIconPercent;
                     }
 
                     string leftStr = state.Left.DisplayText;
                     string rightStr = state.Right.DisplayText;
                     string caseStr = state.Case.DisplayText;
 
-                    _notifyIcon.Text = $"{state.DeviceName}\nL: {leftStr} | R: {rightStr} | Case: {caseStr}".Length > 63
-                        ? $"{state.DeviceName}: {leftStr}/{rightStr}".Substring(0, Math.Min(63, $"{state.DeviceName}: {leftStr}/{rightStr}".Length))
-                        : $"{state.DeviceName}\nL: {leftStr} | R: {rightStr} | Case: {caseStr}";
+                    string fullTooltip = $"{state.DeviceName}\nL: {leftStr} | R: {rightStr} | Case: {caseStr}";
+                    string shortTooltip = $"{state.DeviceName}: {leftStr}/{rightStr}";
+                    _notifyIcon.Text = fullTooltip.Length <= 63
+                        ? fullTooltip
+                        : shortTooltip.Substring(0, Math.Min(63, shortTooltip.Length));
                 }
                 catch { }
             });
@@ -425,7 +466,15 @@ namespace RealmeBudsPopup
             }
 
             IntPtr hIcon = bmp.GetHicon();
-            return Icon.FromHandle(hIcon);
+            try
+            {
+                using var tempIcon = Icon.FromHandle(hIcon);
+                return (Icon)tempIcon.Clone();
+            }
+            finally
+            {
+                DestroyIcon(hIcon);
+            }
         }
 
         public void ShowSettingsWindow()
@@ -458,10 +507,19 @@ namespace RealmeBudsPopup
                 _coordinator.BudsConnected += (s, state) =>
                 {
                     _isCurrentlyConnected = true;
+                    _connectionStartTime = DateTime.UtcNow;
+                    _lastCaseWasAvailable = state.Case.IsAvailable && state.Case.Percent.HasValue && state.Case.Percent.Value > 0;
                     _lastKnownRealState = state;
                     AutoDetectHeadphoneModel(state.DeviceName);
                     UpdateTrayBatteryDisplay(state);
                     ShowPopupWindow(state);
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (_settingsWindow != null && _settingsWindow.IsLoaded)
+                        {
+                            _settingsWindow.UpdateLiveBatteryState(state);
+                        }
+                    });
                 };
                 _coordinator.BatteryUpdated += (s, state) =>
                 {
@@ -541,13 +599,16 @@ namespace RealmeBudsPopup
 
         private void ExitApplication()
         {
-            try { System.IO.File.AppendAllText("startup_trace.log", "ExitApplication called: " + Environment.StackTrace + "\n"); } catch { }
+            if (_isExiting) return;
+            _isExiting = true;
+
             _backgroundPollTimer?.Stop();
             _coordinator?.Dispose();
 
             if (_notifyIcon != null)
             {
                 _notifyIcon.Visible = false;
+                _notifyIcon.Icon?.Dispose();
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
             }

@@ -44,19 +44,8 @@ namespace RealmeBudsPopup.Views
 
             if (initialState != null)
             {
-                string name = initialState.DeviceName.ToLowerInvariant();
-                if (name.Contains("buds") || name.Contains("t500") || name.Contains("realme") || name.Contains("oppo") || name.Contains("freebuds"))
-                {
-                    ThemeSettings.Current.ModelType = HeadphoneModelType.InEar;
-                }
-                else if (name.Contains("edifier") || name.Contains("wh-1000") || name.Contains("airpods max") || name.Contains("w800") || name.Contains("w820") || name.Contains("over-ear"))
-                {
-                    ThemeSettings.Current.ModelType = HeadphoneModelType.OverEar;
-                }
-                else
-                {
-                    ThemeSettings.Current.ModelType = HeadphoneModelType.InEar;
-                }
+                _hadCaseBattery = initialState.Case.IsAvailable && initialState.Case.Percent.HasValue && initialState.Case.Percent.Value > 0;
+                App.AutoDetectHeadphoneModel(initialState.DeviceName);
             }
 
             ApplyThemeAndColors();
@@ -251,11 +240,14 @@ namespace RealmeBudsPopup.Views
 
         private static void AnimateGauge(Controls.CircularGauge gauge, double targetValue)
         {
+            if (Math.Abs(gauge.Value - targetValue) < 0.5)
+                return;
+
             var anim = new DoubleAnimation
             {
-                From = 0.0,
+                From = gauge.Value,
                 To = targetValue,
-                Duration = TimeSpan.FromSeconds(0.75),
+                Duration = TimeSpan.FromSeconds(0.65),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
             gauge.BeginAnimation(Controls.CircularGauge.ValueProperty, anim);
