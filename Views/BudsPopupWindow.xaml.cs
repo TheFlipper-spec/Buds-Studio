@@ -14,6 +14,7 @@ namespace RealmeBudsPopup.Views
         private const double StartTop = -200.0;
         private readonly DispatcherTimer _dismissTimer;
         private bool _isClosing;
+        private bool _hadCaseBattery;
         private BudsBatteryState? _currentState;
 
         public bool IsClosed => _isClosing;
@@ -150,9 +151,15 @@ namespace RealmeBudsPopup.Views
             {
                 if (_isClosing) return;
 
-                // Reset dismiss timer so updated case battery stays on screen
-                _dismissTimer.Stop();
-                _dismissTimer.Start();
+                bool hasCaseBattery = state.Case.IsAvailable && state.Case.Percent.HasValue && state.Case.Percent.Value > 0;
+                if (!_hadCaseBattery && hasCaseBattery)
+                {
+                    _hadCaseBattery = true;
+                    // Newly arrived case battery: give user 3.5s to see it then close cleanly
+                    _dismissTimer.Stop();
+                    _dismissTimer.Interval = TimeSpan.FromSeconds(3.5);
+                    _dismissTimer.Start();
+                }
 
                 // Auto-detect Over-Ear or TWS Buds based on connected device name
                 string name = state.DeviceName.ToLowerInvariant();

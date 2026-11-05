@@ -214,18 +214,40 @@ namespace RealmeBudsPopup.Bluetooth
             {
                 string macHex = bluetoothDevice.BluetoothAddress.ToString("X12");
 
-                // 1. Realme / Oppo / OnePlus Serial Protocol
-                var serialBattery = await RealmeSerialProtocol.QueryBatteryViaSerialAsync(deviceName, macHex);
-                if (serialBattery == null && (deviceName.Contains("realme", StringComparison.OrdinalIgnoreCase) ||
-                                              deviceName.Contains("buds", StringComparison.OrdinalIgnoreCase) ||
-                                              deviceName.Contains("t500", StringComparison.OrdinalIgnoreCase)))
+                bool isTws = deviceName.Contains("realme", StringComparison.OrdinalIgnoreCase) ||
+                             deviceName.Contains("buds", StringComparison.OrdinalIgnoreCase) ||
+                             deviceName.Contains("t500", StringComparison.OrdinalIgnoreCase) ||
+                             deviceName.Contains("oppo", StringComparison.OrdinalIgnoreCase);
+
+                if (isTws)
                 {
-                    // Allow virtual COM port to finish binding so case battery is ready on the first popup
-                    await Task.Delay(350);
-                    serialBattery = await RealmeSerialProtocol.QueryBatteryViaSerialAsync(deviceName, macHex);
+                    BudsBatteryState? candidate = null;
+                    // Query up to 4 attempts (250ms interval) to capture open case telemetry directly on first popup
+                    for (int i = 0; i < 4; i++)
+                    {
+                        var serial = await RealmeSerialProtocol.QueryBatteryViaSerialAsync(deviceName, macHex);
+                        if (serial != null)
+                        {
+                            if (serial.Case.IsAvailable && serial.Case.Percent.HasValue && serial.Case.Percent.Value > 0)
+                            {
+                                return serial;
+                            }
+                            if (candidate == null)
+                                candidate = serial;
+                        }
+                        await Task.Delay(250);
+                    }
+
+                    if (candidate != null)
+                        return candidate;
                 }
-                if (serialBattery != null)
-                    return serialBattery;
+                else
+                {
+                    // 1. Realme / Oppo / OnePlus Serial Protocol
+                    var serialBattery = await RealmeSerialProtocol.QueryBatteryViaSerialAsync(deviceName, macHex);
+                    if (serialBattery != null)
+                        return serialBattery;
+                }
 
                 // 2. Windows PnP Device Property (DEVPKEY_Device_BatteryLevel)
                 // Instantly resolves Edifier W800BT/W820NB, Sony, JBL, Bose, and any standard HFP/AVRCP headset connected to Windows!
